@@ -88,9 +88,10 @@ export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) 
       scene.add(dash);
     }
 
-    // Buildings
+    // Buildings (with collision data)
     const bldMat = (c: number) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
     const colors = [0x3a4a6b, 0x5b6d8f, 0x2f3a52, 0x6b5b8f, 0x8f5b6d];
+    const buildings: { x: number; z: number; w: number; d: number }[] = [];
     for (let i = 0; i < 18; i++) {
       const angle = (i / 18) * Math.PI * 2;
       const r = 95 + Math.random() * 30;
@@ -98,11 +99,15 @@ export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) 
       const w = 6 + Math.random() * 8;
       const d = 6 + Math.random() * 8;
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bldMat(colors[i % colors.length]));
-      b.position.set(Math.cos(angle) * r, h / 2, Math.sin(angle) * r);
+      const x = Math.cos(angle) * r;
+      const z = Math.sin(angle) * r;
+      b.position.set(x, h / 2, z);
       b.castShadow = true;
       b.receiveShadow = true;
       scene.add(b);
+      buildings.push({ x, z, w, d });
     }
+
 
     // Trees in center island
     for (let i = 0; i < 12; i++) {
