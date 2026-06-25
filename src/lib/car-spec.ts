@@ -66,10 +66,9 @@ export function customToSpec(car: CustomCar): CarSpec {
   for (const mod of car.mods) {
     if (!mod.enabled) continue;
     if (mod.patches.tuning) {
+      const tAny = tuning as unknown as Record<string, unknown>;
       for (const [k, v] of Object.entries(mod.patches.tuning)) {
-        if (k in tuning && typeof (tuning as Record<string, unknown>)[k] === "number") {
-          (tuning as Record<string, number>)[k] = v;
-        }
+        if (k in tAny && typeof tAny[k] === "number") tAny[k] = v;
       }
     }
     if (mod.patches.appearance) {
