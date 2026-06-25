@@ -269,8 +269,58 @@ export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) 
         setGear(velocity > 0.02 ? (kmh < 30 ? "1" : kmh < 60 ? "2" : kmh < 100 ? "3" : kmh < 150 ? "4" : "5") : velocity < -0.02 ? "R" : "N");
       }
 
+      // Minimap
+      drawMinimap();
+
       renderer.render(scene, camera);
     };
+
+    const mmCanvas = minimapRef.current;
+    const mmCtx = mmCanvas?.getContext("2d") ?? null;
+    const MM_SIZE = 180;
+    const WORLD = 260; // world span shown
+    const scale = MM_SIZE / WORLD;
+    if (mmCanvas) { mmCanvas.width = MM_SIZE; mmCanvas.height = MM_SIZE; }
+
+    const drawMinimap = () => {
+      if (!mmCtx) return;
+      const ctx = mmCtx;
+      const cx = MM_SIZE / 2, cy = MM_SIZE / 2;
+      ctx.clearRect(0, 0, MM_SIZE, MM_SIZE);
+      // bg
+      ctx.fillStyle = "#0d1220";
+      ctx.fillRect(0, 0, MM_SIZE, MM_SIZE);
+      // track ring
+      ctx.strokeStyle = "#3a4458";
+      ctx.lineWidth = (outerR - innerR) * scale;
+      ctx.beginPath();
+      ctx.arc(cx, cy, ((outerR + innerR) / 2) * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      // buildings
+      ctx.fillStyle = "#6b7a99";
+      for (const b of buildings) {
+        ctx.fillRect(cx + b.x * scale - (b.w * scale) / 2, cy + b.z * scale - (b.d * scale) / 2, b.w * scale, b.d * scale);
+      }
+      // car (arrow)
+      const px = cx + carGroup.position.x * scale;
+      const py = cy + carGroup.position.z * scale;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(-carGroup.rotation.y);
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -6);
+      ctx.lineTo(4, 5);
+      ctx.lineTo(-4, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      // border
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, MM_SIZE - 1, MM_SIZE - 1);
+    };
+
     animate();
 
     return () => {
