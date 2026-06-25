@@ -443,28 +443,3 @@ function ColorRow({ label, value, onChange }: { label: string; value: string; on
   );
 }
 
-// Re-export helper used by Simulator to fetch GLB blobs
-export async function loadPartIntoScene(
-  part: PartRef,
-  parent: THREE.Group,
-  loader: GLTFLoader,
-): Promise<void> {
-  const blob = await getPart(part.id);
-  if (!blob) return;
-  const buf = await blob.arrayBuffer();
-  await new Promise<void>((resolve) => {
-    loader.parse(buf, "", (gltf) => {
-      const obj = gltf.scene;
-      obj.position.set(...part.position);
-      obj.rotation.set(...part.rotation);
-      obj.scale.setScalar(part.scale);
-      obj.traverse((m) => {
-        if ((m as THREE.Mesh).isMesh) {
-          (m as THREE.Mesh).castShadow = true;
-        }
-      });
-      parent.add(obj);
-      resolve();
-    }, () => resolve());
-  });
-}
