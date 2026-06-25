@@ -6,8 +6,10 @@ type Stats = { speed: number; grip: number; accel: number };
 
 export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const minimapRef = useRef<HTMLCanvasElement>(null);
   const [speed, setSpeed] = useState(0);
   const [gear, setGear] = useState("N");
+
 
   useEffect(() => {
     const mount = mountRef.current!;
@@ -88,9 +90,10 @@ export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) 
       scene.add(dash);
     }
 
-    // Buildings
+    // Buildings (with collision data)
     const bldMat = (c: number) => new THREE.MeshStandardMaterial({ color: c, roughness: 0.6 });
     const colors = [0x3a4a6b, 0x5b6d8f, 0x2f3a52, 0x6b5b8f, 0x8f5b6d];
+    const buildings: { x: number; z: number; w: number; d: number }[] = [];
     for (let i = 0; i < 18; i++) {
       const angle = (i / 18) * Math.PI * 2;
       const r = 95 + Math.random() * 30;
@@ -98,11 +101,15 @@ export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) 
       const w = 6 + Math.random() * 8;
       const d = 6 + Math.random() * 8;
       const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bldMat(colors[i % colors.length]));
-      b.position.set(Math.cos(angle) * r, h / 2, Math.sin(angle) * r);
+      const x = Math.cos(angle) * r;
+      const z = Math.sin(angle) * r;
+      b.position.set(x, h / 2, z);
       b.castShadow = true;
       b.receiveShadow = true;
       scene.add(b);
+      buildings.push({ x, z, w, d });
     }
+
 
     // Trees in center island
     for (let i = 0; i < 12; i++) {
@@ -221,11 +228,27 @@ export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) 
       if (left) carGroup.rotation.y += turnSpeed * turning * Math.sign(velocity || 1);
       if (right) carGroup.rotation.y -= turnSpeed * turning * Math.sign(velocity || 1);
 
-      carGroup.position.x += Math.sin(carGroup.rotation.y) * velocity;
-      carGroup.position.z += Math.cos(carGroup.rotation.y) * velocity;
+      const nextX = carGroup.position.x + Math.sin(carGroup.rotation.y) * velocity;
+      const nextZ = carGroup.position.z + Math.cos(carGroup.rotation.y) * velocity;
+
+      // AABB collision vs buildings (car radius ~1.5)
+      const carR = 1.5;
+      let blocked = false;
+      for (const b of buildings) {
+        const hx = b.w / 2 + carR;
+        const hz = b.d / 2 + carR;
+        if (Math.abs(nextX - b.x) < hx && Math.abs(nextZ - b.z) < hz) { blocked = true; break; }
+      }
+      if (blocked) {
+        velocity *= -0.35; // bounce back
+      } else {
+        carGroup.position.x = nextX;
+        carGroup.position.z = nextZ;
+      }
 
       // Wheels spin
       wheels.forEach((w) => { w.rotation.x += velocity * 0.8; });
+
 
       // Camera follow
       const camOffset = new THREE.Vector3(
@@ -246,8 +269,58 @@ export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) 
         setGear(velocity > 0.02 ? (kmh < 30 ? "1" : kmh < 60 ? "2" : kmh < 100 ? "3" : kmh < 150 ? "4" : "5") : velocity < -0.02 ? "R" : "N");
       }
 
+      // Minimap
+      drawMinimap();
+
       renderer.render(scene, camera);
     };
+
+    const mmCanvas = minimapRef.current;
+    const mmCtx = mmCanvas?.getContext("2d") ?? null;
+    const MM_SIZE = 180;
+    const WORLD = 260; // world span shown
+    const scale = MM_SIZE / WORLD;
+    if (mmCanvas) { mmCanvas.width = MM_SIZE; mmCanvas.height = MM_SIZE; }
+
+    const drawMinimap = () => {
+      if (!mmCtx) return;
+      const ctx = mmCtx;
+      const cx = MM_SIZE / 2, cy = MM_SIZE / 2;
+      ctx.clearRect(0, 0, MM_SIZE, MM_SIZE);
+      // bg
+      ctx.fillStyle = "#0d1220";
+      ctx.fillRect(0, 0, MM_SIZE, MM_SIZE);
+      // track ring
+      ctx.strokeStyle = "#3a4458";
+      ctx.lineWidth = (outerR - innerR) * scale;
+      ctx.beginPath();
+      ctx.arc(cx, cy, ((outerR + innerR) / 2) * scale, 0, Math.PI * 2);
+      ctx.stroke();
+      // buildings
+      ctx.fillStyle = "#6b7a99";
+      for (const b of buildings) {
+        ctx.fillRect(cx + b.x * scale - (b.w * scale) / 2, cy + b.z * scale - (b.d * scale) / 2, b.w * scale, b.d * scale);
+      }
+      // car (arrow)
+      const px = cx + carGroup.position.x * scale;
+      const py = cy + carGroup.position.z * scale;
+      ctx.save();
+      ctx.translate(px, py);
+      ctx.rotate(-carGroup.rotation.y);
+      ctx.fillStyle = cfg.color;
+      ctx.beginPath();
+      ctx.moveTo(0, -6);
+      ctx.lineTo(4, 5);
+      ctx.lineTo(-4, 5);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      // border
+      ctx.strokeStyle = "rgba(255,255,255,0.15)";
+      ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, 0.5, MM_SIZE - 1, MM_SIZE - 1);
+    };
+
     animate();
 
     return () => {
@@ -276,10 +349,17 @@ export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) 
             ← Garage
           </button>
 
-          <div className="rounded-lg border bg-card/80 px-4 py-2 text-right backdrop-blur-md">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Vehicle</p>
-            <p className="font-bold" style={{ color: cfg.color }}>{cfg.name}</p>
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl border bg-card/80 p-2 backdrop-blur-md" style={{ boxShadow: "var(--hud-glow)" }}>
+              <canvas ref={minimapRef} className="block rounded-xl" style={{ width: 180, height: 180 }} />
+              <p className="mt-1 text-center font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground">Map</p>
+            </div>
+            <div className="rounded-lg border bg-card/80 px-4 py-2 text-right backdrop-blur-md">
+              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Vehicle</p>
+              <p className="font-bold" style={{ color: cfg.color }}>{cfg.name}</p>
+            </div>
           </div>
+
         </div>
 
         <div className="absolute bottom-6 left-6 flex items-end gap-6">
