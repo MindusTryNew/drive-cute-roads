@@ -6,8 +6,10 @@ type Stats = { speed: number; grip: number; accel: number };
 
 export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const minimapRef = useRef<HTMLCanvasElement>(null);
   const [speed, setSpeed] = useState(0);
   const [gear, setGear] = useState("N");
+
 
   useEffect(() => {
     const mount = mountRef.current!;
