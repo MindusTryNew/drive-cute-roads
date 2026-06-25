@@ -349,10 +349,17 @@ export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) 
             ← Garage
           </button>
 
-          <div className="rounded-lg border bg-card/80 px-4 py-2 text-right backdrop-blur-md">
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Vehicle</p>
-            <p className="font-bold" style={{ color: cfg.color }}>{cfg.name}</p>
+          <div className="flex items-start gap-3">
+            <div className="rounded-2xl border bg-card/80 p-2 backdrop-blur-md" style={{ boxShadow: "var(--hud-glow)" }}>
+              <canvas ref={minimapRef} className="block rounded-xl" style={{ width: 180, height: 180 }} />
+              <p className="mt-1 text-center font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground">Map</p>
+            </div>
+            <div className="rounded-lg border bg-card/80 px-4 py-2 text-right backdrop-blur-md">
+              <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Vehicle</p>
+              <p className="font-bold" style={{ color: cfg.color }}>{cfg.name}</p>
+            </div>
           </div>
+
         </div>
 
         <div className="absolute bottom-6 left-6 flex items-end gap-6">
