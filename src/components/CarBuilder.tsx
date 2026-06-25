@@ -11,7 +11,7 @@ import {
   canCreateToday,
   downloadCar,
 } from "@/lib/garage";
-import { savePart, getPart, deletePart } from "@/lib/parts-store";
+import { savePart, deletePart } from "@/lib/parts-store";
 import { buildCarGroup } from "@/lib/car-renderer";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
