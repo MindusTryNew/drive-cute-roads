@@ -228,11 +228,27 @@ export function Simulator({ car, onExit }: { car: CarKey; onExit: () => void }) 
       if (left) carGroup.rotation.y += turnSpeed * turning * Math.sign(velocity || 1);
       if (right) carGroup.rotation.y -= turnSpeed * turning * Math.sign(velocity || 1);
 
-      carGroup.position.x += Math.sin(carGroup.rotation.y) * velocity;
-      carGroup.position.z += Math.cos(carGroup.rotation.y) * velocity;
+      const nextX = carGroup.position.x + Math.sin(carGroup.rotation.y) * velocity;
+      const nextZ = carGroup.position.z + Math.cos(carGroup.rotation.y) * velocity;
+
+      // AABB collision vs buildings (car radius ~1.5)
+      const carR = 1.5;
+      let blocked = false;
+      for (const b of buildings) {
+        const hx = b.w / 2 + carR;
+        const hz = b.d / 2 + carR;
+        if (Math.abs(nextX - b.x) < hx && Math.abs(nextZ - b.z) < hz) { blocked = true; break; }
+      }
+      if (blocked) {
+        velocity *= -0.35; // bounce back
+      } else {
+        carGroup.position.x = nextX;
+        carGroup.position.z = nextZ;
+      }
 
       // Wheels spin
       wheels.forEach((w) => { w.rotation.x += velocity * 0.8; });
+
 
       // Camera follow
       const camOffset = new THREE.Vector3(
