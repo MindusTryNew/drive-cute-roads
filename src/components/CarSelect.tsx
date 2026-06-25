@@ -1,4 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import {
+  listCars,
+  deleteCar,
+  remainingToday,
+  DAILY_LIMIT,
+  importCarFromFile,
+  saveCar,
+  downloadCar,
+  type CustomCar,
+} from "@/lib/garage";
 
 export type CarKey = "roadster" | "suv" | "racer";
 
@@ -11,33 +21,58 @@ export const CARS: Record<CarKey, {
   desc: string;
 }> = {
   roadster: {
-    name: "Aurora GT",
-    tag: "Cabrio · Tour",
-    color: "#e8c547",
-    accent: "oklch(0.78 0.18 75)",
-    stats: { speed: 7, grip: 6, accel: 6 },
-    desc: "Eleganter Roadster mit balanciertem Fahrwerk.",
+    name: "Aurora GT", tag: "Cabrio · Tour", color: "#e8c547", accent: "oklch(0.78 0.18 75)",
+    stats: { speed: 7, grip: 6, accel: 6 }, desc: "Eleganter Roadster mit balanciertem Fahrwerk.",
   },
   suv: {
-    name: "Monolith X",
-    tag: "SUV · Allwetter",
-    color: "#5b8def",
-    accent: "oklch(0.7 0.2 250)",
-    stats: { speed: 5, grip: 9, accel: 4 },
-    desc: "Massives SUV mit hoher Traktion und Stabilität.",
+    name: "Monolith X", tag: "SUV · Allwetter", color: "#5b8def", accent: "oklch(0.7 0.2 250)",
+    stats: { speed: 5, grip: 9, accel: 4 }, desc: "Massives SUV mit hoher Traktion und Stabilität.",
   },
   racer: {
-    name: "Vortex R1",
-    tag: "Hypercar · Track",
-    color: "#ef4f5b",
-    accent: "oklch(0.7 0.2 25)",
-    stats: { speed: 10, grip: 8, accel: 10 },
-    desc: "Aggressives Hypercar für maximale Performance.",
+    name: "Vortex R1", tag: "Hypercar · Track", color: "#ef4f5b", accent: "oklch(0.7 0.2 25)",
+    stats: { speed: 10, grip: 8, accel: 10 }, desc: "Aggressives Hypercar für maximale Performance.",
   },
 };
 
-export function CarSelect({ onSelect }: { onSelect: (c: CarKey) => void }) {
+export type GarageSelection =
+  | { kind: "preset"; key: CarKey }
+  | { kind: "custom"; car: CustomCar };
+
+export function CarSelect({
+  onSelect,
+  onBuildNew,
+  onEdit,
+}: {
+  onSelect: (sel: GarageSelection) => void;
+  onBuildNew: () => void;
+  onEdit: (car: CustomCar) => void;
+}) {
   const [hover, setHover] = useState<CarKey>("roadster");
+  const [customCars, setCustomCars] = useState<CustomCar[]>([]);
+  const [remaining, setRemaining] = useState(DAILY_LIMIT);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setCustomCars(listCars());
+    setRemaining(remainingToday());
+  }, []);
+
+  const refresh = () => {
+    setCustomCars(listCars());
+    setRemaining(remainingToday());
+  };
+
+  const handleImport = async (file: File) => {
+    setError(null);
+    try {
+      const car = await importCarFromFile(file);
+      saveCar(car, false); // import doesn't count against daily limit
+      refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Import fehlgeschlagen");
+    }
+  };
+
   const keys = Object.keys(CARS) as CarKey[];
 
   return (
@@ -59,7 +94,7 @@ export function CarSelect({ onSelect }: { onSelect: (c: CarKey) => void }) {
 
         <section className="mt-12">
           <h2 className="text-4xl font-bold tracking-tight md:text-5xl">Wähle dein Fahrzeug.</h2>
-          <p className="mt-3 max-w-xl text-muted-foreground">Drei Charaktere, drei Fahrgefühle. Steig ein und teste sie auf der Strecke.</p>
+          <p className="mt-3 max-w-xl text-muted-foreground">Drei Werks-Charaktere — oder bau dein eigenes Auto im Profi-Editor.</p>
         </section>
 
         <section className="mt-10 grid gap-6 md:grid-cols-3">
@@ -71,7 +106,7 @@ export function CarSelect({ onSelect }: { onSelect: (c: CarKey) => void }) {
                 key={k}
                 onMouseEnter={() => setHover(k)}
                 onFocus={() => setHover(k)}
-                onClick={() => onSelect(k)}
+                onClick={() => onSelect({ kind: "preset", key: k })}
                 className="group relative overflow-hidden rounded-2xl border bg-card p-6 text-left backdrop-blur-md transition-all hover:-translate-y-1"
                 style={{
                   borderColor: active ? car.accent : "var(--border)",
@@ -80,23 +115,18 @@ export function CarSelect({ onSelect }: { onSelect: (c: CarKey) => void }) {
               >
                 <div className="absolute -right-10 -top-10 h-40 w-40 rounded-full opacity-40 blur-3xl transition-opacity group-hover:opacity-70"
                      style={{ background: car.accent }} />
-
                 <div className="relative">
                   <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">{car.tag}</p>
                   <h3 className="mt-1 text-2xl font-bold">{car.name}</h3>
-
                   <div className="my-6 flex h-32 items-center justify-center">
                     <CarSilhouette type={k} color={car.color} />
                   </div>
-
                   <p className="text-sm text-muted-foreground">{car.desc}</p>
-
                   <dl className="mt-5 space-y-2">
                     <Stat label="Speed" value={car.stats.speed} color={car.accent} />
                     <Stat label="Grip" value={car.stats.grip} color={car.accent} />
                     <Stat label="Accel" value={car.stats.accel} color={car.accent} />
                   </dl>
-
                   <div className="mt-6 flex items-center justify-between font-mono text-xs uppercase tracking-widest">
                     <span className="text-muted-foreground">Auswählen</span>
                     <span style={{ color: car.accent }}>→</span>
@@ -107,8 +137,88 @@ export function CarSelect({ onSelect }: { onSelect: (c: CarKey) => void }) {
           })}
         </section>
 
+        {/* Meine Autos */}
+        <section className="mt-16">
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">Meine Autos</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {remaining > 0
+                  ? `${remaining} von ${DAILY_LIMIT} neuen Autos heute übrig.`
+                  : "Tageslimit erreicht — komm morgen wieder oder bearbeite vorhandene Autos."}
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <label className="cursor-pointer rounded-lg border px-4 py-2 text-sm hover:border-primary">
+                Mod / Auto importieren
+                <input type="file" accept=".json,application/json" className="hidden"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    if (f) await handleImport(f);
+                    e.target.value = "";
+                  }} />
+              </label>
+              <button
+                onClick={onBuildNew}
+                disabled={remaining <= 0}
+                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
+                style={{ boxShadow: remaining > 0 ? "var(--hud-glow)" : undefined }}
+              >
+                + Neues Auto bauen
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+              {error}
+            </div>
+          )}
+
+          {customCars.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-dashed bg-card/40 p-10 text-center">
+              <p className="text-muted-foreground">Noch keine eigenen Autos. Klick „+ Neues Auto bauen" um zu starten.</p>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-4 md:grid-cols-3">
+              {customCars.map((c) => (
+                <div key={c.id} className="rounded-2xl border bg-card p-5"
+                     style={{ borderColor: c.appearance.primaryColor + "55" }}>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground capitalize">{c.appearance.bodyType}</p>
+                      <h3 className="mt-1 text-xl font-bold">{c.name}</h3>
+                    </div>
+                    <div className="h-8 w-8 rounded-full" style={{ background: c.appearance.primaryColor, boxShadow: `0 0 24px ${c.appearance.primaryColor}88` }} />
+                  </div>
+                  <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                    <Mini label="Top" value={`${Math.round(c.tuning.topSpeed)} km/h`} />
+                    <Mini label="0–100" value={`${c.tuning.time0to100.toFixed(1)} s`} />
+                    <Mini label="Grip" value={String(Math.round(c.tuning.grip))} />
+                    <Mini label="Antrieb" value={c.tuning.drive} />
+                  </dl>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <button onClick={() => onSelect({ kind: "custom", car: c })}
+                      className="flex-1 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
+                      Fahren
+                    </button>
+                    <button onClick={() => onEdit(c)}
+                      className="rounded-md border px-3 py-2 text-xs hover:border-primary">Bearbeiten</button>
+                    <button onClick={() => downloadCar(c)}
+                      className="rounded-md border px-3 py-2 text-xs hover:border-primary">Export</button>
+                    <button onClick={() => { if (confirm(`„${c.name}" wirklich löschen?`)) { deleteCar(c.id); refresh(); } }}
+                      className="rounded-md border border-destructive/40 px-3 py-2 text-xs text-destructive hover:bg-destructive/10">
+                      ✕
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         <footer className="mt-auto pt-12 font-mono text-xs text-muted-foreground">
-          © Drift Lab — Klicke auf ein Auto zum Starten
+          © Drift Lab — Mod-Sharing über .car.json
         </footer>
       </div>
     </main>
@@ -125,6 +235,15 @@ function Stat({ label, value, color }: { label: string; value: number; color: st
                 style={{ background: i < value ? color : "oklch(1 0 0 / 0.08)" }} />
         ))}
       </dd>
+    </div>
+  );
+}
+
+function Mini({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md bg-background/40 px-2 py-1.5">
+      <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">{label}</p>
+      <p className="font-bold tabular-nums">{value}</p>
     </div>
   );
 }
