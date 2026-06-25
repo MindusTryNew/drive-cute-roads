@@ -1,29 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { CarSelect, type CarKey } from "@/components/CarSelect";
+import { Simulator } from "@/components/Simulator";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Your App" },
-      { name: "description", content: "Replace this with a one-sentence description of your app." },
-      { property: "og:title", content: "Your App" },
-      { property: "og:description", content: "Replace this with a one-sentence description of your app." },
+      { title: "Drift Lab — 3D Auto Simulator" },
+      { name: "description", content: "Wähle dein Auto und fahre durch eine moderne 3D-Map." },
     ],
   }),
   component: Index,
 });
 
-// IMPORTANT: Replace this placeholder. See ./README.md for routing conventions.
 function Index() {
-  return (
-    <div
-      className="flex min-h-screen items-center justify-center"
-      style={{ backgroundColor: "#fcfbf8" }}
-    >
-      <img
-        data-lovable-blank-page-placeholder="REMOVE_THIS"
-        src="https://cdn.gpteng.co/blank-app-v1.svg"
-        alt="Your app will live here!"
-      />
-    </div>
+  const [car, setCar] = useState<CarKey | null>(null);
+  return car ? (
+    <Simulator car={car} onExit={() => setCar(null)} />
+  ) : (
+    <CarSelect onSelect={setCar} />
   );
 }
