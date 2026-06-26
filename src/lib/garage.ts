@@ -3,19 +3,22 @@ import { z } from "zod";
 export const BodyTypeSchema = z.enum(["roadster", "suv", "racer", "truck", "kompakt"]);
 export const DriveSchema = z.enum(["FWD", "RWD", "AWD"]);
 
+// No upper caps — fully experimental tuning allowed.
+const pos = (min = 0.0001) => z.number().min(min);
+
 export const TuningSchema = z.object({
-  time0to100: z.number().min(2).max(12),       // seconds
-  topSpeed: z.number().min(120).max(400),       // km/h
-  brakeDist: z.number().min(25).max(60),        // m (100-0)
-  weight: z.number().min(800).max(2500),        // kg
-  weightDistFront: z.number().min(30).max(70),  // % front
+  time0to100: pos(0.05),
+  topSpeed: pos(1),
+  brakeDist: pos(0.5),
+  weight: pos(1),
+  weightDistFront: z.number().min(0).max(100),
   drive: DriveSchema,
-  gears: z.number().int().min(4).max(8),
-  gearRatios: z.array(z.number().min(0.3).max(5)).min(4).max(8),
-  grip: z.number().min(0).max(100),
-  steerAngle: z.number().min(15).max(45),
-  handlingBias: z.number().min(-100).max(100),  // - understeer, + oversteer
-  suspension: z.number().min(0).max(100),
+  gears: z.number().int().min(1).max(20),
+  gearRatios: z.array(pos(0.05)).min(1).max(20),
+  grip: pos(0),
+  steerAngle: pos(0.1),
+  handlingBias: z.number(),
+  suspension: z.number().min(0),
 });
 export type Tuning = z.infer<typeof TuningSchema>;
 
@@ -24,7 +27,7 @@ export const AppearanceSchema = z.object({
   primaryColor: z.string().regex(/^#[0-9a-f]{6}$/i),
   secondaryColor: z.string().regex(/^#[0-9a-f]{6}$/i),
   wheelColor: z.string().regex(/^#[0-9a-f]{6}$/i),
-  wheelSize: z.number().min(14).max(22),
+  wheelSize: z.number().min(10).max(40),
   spoiler: z.boolean(),
   spoilerHeight: z.number().min(0).max(1),
   glassTint: z.number().min(0).max(1),
@@ -32,12 +35,12 @@ export const AppearanceSchema = z.object({
 export type Appearance = z.infer<typeof AppearanceSchema>;
 
 export const PartRefSchema = z.object({
-  id: z.string(),            // IndexedDB key
+  id: z.string(),
   name: z.string(),
   enabled: z.boolean(),
   position: z.tuple([z.number(), z.number(), z.number()]),
   rotation: z.tuple([z.number(), z.number(), z.number()]),
-  scale: z.number().min(0.05).max(5),
+  scale: z.number().min(0.01).max(20),
 });
 export type PartRef = z.infer<typeof PartRefSchema>;
 
@@ -118,8 +121,7 @@ export function listCars(): CustomCar[] {
   try {
     const raw = localStorage.getItem(CARS_KEY);
     if (!raw) return [];
-    const arr = JSON.parse(raw);
-    return z.array(CustomCarSchema).parse(arr);
+    return z.array(CustomCarSchema).parse(JSON.parse(raw));
   } catch {
     return [];
   }
@@ -195,7 +197,6 @@ export async function importCarFromFile(file: File): Promise<CustomCar> {
   const text = await file.text();
   const obj = JSON.parse(text);
   const car = CustomCarSchema.parse(obj.car ?? obj);
-  // assign fresh id to avoid collisions
   car.id = crypto.randomUUID();
   car.createdAt = Date.now();
   return car;
