@@ -200,10 +200,14 @@ export function CarBuilder({
         </div>
       </div>
 
+      <div className="mx-6 mb-2 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-2 text-xs text-amber-200">
+        ⚠ Experimentell: Performance-Werte sind unbegrenzt. Werte direkt in die Felder tippen — extreme Zahlen (z. B. 10.000 km/h) machen das Auto unkontrollierbar.
+      </div>
+
       <div className="grid gap-6 px-6 pb-12 lg:grid-cols-3">
         {/* Performance */}
         <section className="rounded-2xl border bg-card p-5">
-          <h3 className="mb-4 text-lg font-bold">Performance</h3>
+          <h3 className="mb-4 text-lg font-bold">Performance (ohne Limit)</h3>
           <SliderRow label="0–100 km/h (s)" min={2} max={12} step={0.1}
             value={car.tuning.time0to100} onChange={(v) => patchTuning("time0to100", v)} />
           <SliderRow label="Top Speed (km/h)" min={120} max={400} step={5}
