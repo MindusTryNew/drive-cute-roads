@@ -1,85 +1,60 @@
 
-# Custom Car Builder + Mod-System
+# Erweiterung: Unlimited Tuning, Big Map, Tag/Nacht, Multiplayer
 
-Ziel: Nutzer können eigene Autos mit Profi-Tuning bauen, sie über JSON-Mod-Pakete teilen und eigene 3D-Teile (GLB) hochladen. Limit: 3 neue Autos pro Tag, lokal im Browser.
+## 1. Tuning ohne Limits (`CarBuilder.tsx`, `garage.ts`)
+- Slider-`max` auf extreme Werte angehoben (Topspeed bis 10.000 km/h, 0-100 bis 0.1s, Bremse bis 5m, Gewicht 10-50.000 kg, Grip 0-500, Lenkwinkel bis 180°).
+- Zusätzlich Zahleneingabe (`<Input type="number">`) neben jedem Slider — Slider ist nur Komfort, Wert kann frei darüber hinaus eingetippt werden.
+- Zod-Schema: untere Grenzen bleiben (>0), obere Caps entfernt.
+- Hinweisbanner: „Experimentell — Werte über Empfehlung können das Auto unkontrollierbar machen."
+- `physicsFromTuning` bleibt formelbasiert (kein Hard-Clamp), nur numerische Sicherung gegen `NaN`/Negativ.
 
-## Umfang
+## 2. Map-Erweiterung (`Simulator.tsx` → neu: `src/lib/world.ts`)
+World wird aus `Simulator.tsx` ausgelagert in `buildWorld(scene)`:
+- **4× Fläche**: Ground 800×800, Fog auf 400 verschoben.
+- **Straßennetz**: Grid aus 6 horizontalen + 6 vertikalen Asphalt-Streifen (BoxGeometry, dunkelgrau) mit gelben Mittellinien; bestehender Rundkurs bleibt als Race-Track in der Mitte.
+- **Kreuzungen**: an jedem Schnittpunkt Asphalt-Quadrat + 4 weiße Zebrastreifen-Plates.
+- **Offroad-/Hügel-Zone** (Nordost-Viertel): Plane mit Vertex-Displacement (Perlin-ähnlich via Sinus-Summen, deterministisch), Material sandbraun, eigene Kollisions-Heightmap. Auto „sackt" auf Bodenhöhe via Sample-Funktion `groundHeightAt(x,z)`.
+- Mehr Gebäude (60 statt 18), entlang der Straßen verteilt; Tankstellen-Boxen, ein paar Brücken-Rampen am Übergang Stadt↔Offroad.
+- Minimap: Skala auf neue Weltgröße angepasst, Straßen als hellgraue Linien gezeichnet.
 
-### 1. Garage erweitern (`CarSelect.tsx`)
-- Bestehende 3 Werks-Autos bleiben
-- Neuer Bereich „Meine Autos" zeigt selbst erstellte Autos aus `localStorage`
-- Button „+ Neues Auto bauen" (deaktiviert mit Countdown, wenn Tageslimit erreicht)
-- Button „Mod importieren" (JSON-Datei einlesen)
-- Pro Auto: Bearbeiten / Exportieren (JSON) / Löschen
+## 3. Tag/Nacht-Zyklus (`src/lib/day-night.ts` + `Simulator.tsx`)
+- 120 s = 1 voller Zyklus, `t = (clock.elapsedTime % 120) / 120`.
+- Sonnen-Position auf Kreisbahn (Azimuth + Höhe), unter Horizont → Mond (HemisphereLight kühlt ein).
+- Farb-LUT für 5 Phasen (Dawn / Day / Dusk / Night / DeepNight): `scene.background`, `scene.fog.color`, `sun.color`, `sun.intensity`, Hemilight-Farben werden interpoliert.
+- Nachts: Scheinwerfer des Autos automatisch heller (SpotLight intensity 2→5), Straßenlaternen entlang der Straßen leuchten (kleine PointLights an Lampenmasten, nur nachts aktiv für Perf).
+- HUD: kleine Uhr oben (z. B. „14:30").
 
-### 2. Car-Builder (neu: `CarBuilder.tsx`)
-Profi-Sliders mit Live-3D-Preview (rotierende Kamera, gleiches Three.js-Setup wie Simulator):
+## 4. Multiplayer — Lokal & Online
+Hauptmenü-Modus-Wahl in `CarSelect.tsx`: **Solo / Split-Screen / Online**.
 
-**Performance**
-- 0–100 km/h (2.0–12.0 s)
-- Top Speed (120–400 km/h)
-- Bremsweg 100–0 (25–60 m)
-- Gewicht (800–2500 kg)
-- Gewichtsverteilung vorne/hinten (30/70 – 70/30)
-- Antrieb (FWD / RWD / AWD)
-- Getriebe: Anzahl Gänge (4–8) + Übersetzungen pro Gang
+### 4a. Split-Screen (`Simulator.tsx`)
+- Zweiter `carGroup` + zweite `PerspectiveCamera`.
+- Renderer mit `setScissorTest`, zwei Viewports nebeneinander (vertikal geteilt).
+- Spieler 1: WASD + Space. Spieler 2: Pfeiltasten + RShift.
+- Beide HUDs (Speed/Gear/Minimap) gespiegelt pro Hälfte.
+- Auto-Auswahl: Builder-Flow wählt zwei Autos hintereinander.
 
-**Handling**
-- Grip (0–100)
-- Lenkwinkel (15–45°)
-- Untersteuern ↔ Übersteuern Bias (−100 … +100)
-- Federung Härte (0–100)
+### 4b. Online (Lovable Cloud + Supabase Realtime Broadcast)
+- **Cloud aktivieren** (falls noch nicht): Hinweis ans User, dass Online-MP Lovable Cloud benötigt.
+- Keine DB-Tabelle nötig — nur Realtime-Broadcast-Channel pro Raum.
+- Neuer Screen `Lobby.tsx`: Raum-Code eingeben/erstellen (6-stellig, zufällig), Nickname.
+- Channel-Name `room:<code>`. Jeder Client sendet ~15 Hz `{playerId, x, z, ry, speed, name, color}` via `channel.send({type:'broadcast', event:'pose', payload})`.
+- Empfänger hält `Map<playerId, RemoteCar>`; Remote-Autos werden mit gleichem `buildCarGroup` (Default-Spec, eigene Farbe) gerendert und per Lerp interpoliert.
+- Keine Kollision zwischen Spielern (nur visuell), kein Server-State, kein Anti-Cheat — bewusst leichtgewichtig.
+- Spielername schwebt über Auto (CSS2DRenderer oder Sprite).
+- Disconnect: `channel.on('presence', ...)` zum Aufräumen.
 
-**Optik**
-- Karosserie-Typ (Roadster / SUV / Hypercar / Truck / Kompakt)
-- Primärfarbe + Sekundärfarbe (Color-Picker)
-- Felgenfarbe, Felgengröße
-- Spoiler an/aus + Höhe
-- Glas-Tönung
-
-Validierung mit `zod`. Werte werden in die Physik-Konstanten des Simulators als `maxSpeed`, `accel`, `turnSpeed`, `friction` umgerechnet.
-
-### 3. Daten-Layer (`src/lib/garage.ts`)
-- Schema `CustomCar` (zod) mit `id`, `name`, `createdAt`, `tuning`, `appearance`, `mods[]`
-- `localStorage` Keys: `garage:cars`, `garage:dailyLimit` (`{ date: "YYYY-MM-DD", count: number }`)
-- API: `listCars()`, `saveCar()`, `deleteCar()`, `canCreateToday()`, `remainingToday()`, `exportCar(id)`, `importCarJson(file)`
-- Limit-Logik: pro Kalendertag max. 3 **neue** Autos; Bearbeiten zählt nicht
-- Hinweis im UI: „Limit ist nur lokal — kann durch Browser-Cache-Reset umgangen werden."
-
-### 4. Mod-System
-**JSON-Mod-Pakete**
-- Format: `{ version: 1, type: "mod", name, author, target: "any"|carId, patches: { tuning?, appearance? }, parts?: AssetRef[] }`
-- Mods werden auf ein Auto angewendet (Patches überschreiben Werte additiv/multiplikativ je Feld-Typ)
-- Mod-Manager im Builder: Liste installierter Mods, an/aus toggeln, entfernen
-- Export: Download als `<carname>.car.json`; Auto + Mods in einer Datei
-
-**Eigene 3D-Teile (GLB-Upload)**
-- File-Input akzeptiert `.glb`/`.gltf` (max. 5 MB)
-- In `IndexedDB` als Blob gespeichert (zu groß für localStorage)
-- Pro Teil: Position (x/y/z), Rotation, Skalierung — Sliders im Builder
-- Im Simulator lädt `GLTFLoader` die Teile und hängt sie an die `carGroup`
-- Hinweis: kein Cloud-Sync, nur lokal
-
-### 5. Simulator-Integration (`Simulator.tsx`)
-- Akzeptiert jetzt `car: CarKey | CustomCar`
-- Physik-Konstanten aus Tuning umgerechnet (deterministische Formeln, z. B. `accel` aus 0–100-Zeit)
-- Karosserie-Geometrie nach `bodyType` (vorhandene Box-Geo erweitert um Roadster/Truck/Kompakt)
-- Custom GLB-Parts werden nach Erstellung der `carGroup` geladen und positioniert
-
-### 6. Routing
-- `src/routes/index.tsx` State erweitert: `view: "garage" | "builder" | "sim"`
-- Builder ist Vollbild mit Header („Zurück zur Garage" + „Speichern")
+## 5. Routing & State (`src/routes/index.tsx`)
+View erweitert: `garage | builder | sim | splitsim | lobby | onlinesim`. Mode-Auswahl im Garage-Header (Tabs „Solo / 2-Player / Online").
 
 ## Technisches
+- Neue Dateien: `src/lib/world.ts`, `src/lib/day-night.ts`, `src/lib/multiplayer.ts`, `src/components/Lobby.tsx`, `src/components/SplitSimulator.tsx` (oder Flag in `Simulator.tsx`).
+- Geänderte Dateien: `Simulator.tsx`, `CarBuilder.tsx`, `CarSelect.tsx`, `garage.ts`, `routes/index.tsx`, `car-spec.ts` (Zod-Caps lösen).
+- Dependencies: keine neuen — Supabase-Client kommt mit Lovable Cloud, Three.js hat alles.
+- Lovable Cloud wird im selben Schritt aktiviert (nur Realtime, keine Tabellen).
 
-- Neue Dateien: `src/components/CarBuilder.tsx`, `src/lib/garage.ts`, `src/lib/mods.ts`, `src/lib/parts-store.ts` (IndexedDB-Wrapper, ~30 Zeilen, kein extra Package)
-- Edits: `CarSelect.tsx`, `Simulator.tsx`, `routes/index.tsx`
-- shadcn-Komponenten: `slider`, `input`, `label`, `button`, `card`, `tabs`, `dialog` (alle bereits da)
-- `zod` bereits installiert
-- Three.js `GLTFLoader` ist im `three`-Package enthalten — keine neuen Dependencies
-
-## Out of scope (bewusst weggelassen)
-- Cloud-Sync, Multi-Device, Login (Nutzerwunsch: rein lokal)
-- Community-Marketplace für Mods (nur manueller JSON-Import/Export)
-- Server-seitiges Limit (lokal reicht laut Nutzer)
-- Sound-/Auspuff-Modding (kann später dazu)
+## Out of scope
+- Persistente Online-Räume, Chat, Voice, Server-Physik, Anti-Cheat.
+- Spieler-vs-Spieler-Kollision (nur visuell).
+- Wetter (Regen/Schnee) — kann später dazu.
+- Verkehr (KI-Autos).
