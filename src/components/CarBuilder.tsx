@@ -419,13 +419,24 @@ function Stat({ label, value }: { label: string; value: string }) {
 function SliderRow({ label, min, max, step, value, onChange }: {
   label: string; min: number; max: number; step: number; value: number; onChange: (v: number) => void;
 }) {
+  const sliderMax = Math.max(max, value);
   return (
     <div className="mt-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{label}</Label>
-        <span className="font-mono text-xs tabular-nums">{value.toFixed(step >= 1 ? 0 : 2)}</span>
+        <Input
+          type="number"
+          value={Number.isFinite(value) ? value : 0}
+          step={step}
+          onChange={(e) => {
+            const v = parseFloat(e.target.value);
+            if (Number.isFinite(v)) onChange(v);
+          }}
+          className="h-7 w-28 px-2 text-right font-mono text-xs tabular-nums"
+        />
       </div>
-      <Slider min={min} max={max} step={step} value={[value]} onValueChange={([v]) => onChange(v)} className="mt-1.5" />
+      <Slider min={min} max={sliderMax} step={step} value={[Math.min(value, sliderMax)]}
+        onValueChange={([v]) => onChange(v)} className="mt-1.5" />
     </div>
   );
 }
