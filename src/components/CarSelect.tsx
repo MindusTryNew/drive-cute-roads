@@ -11,14 +11,11 @@ import {
 } from "@/lib/garage";
 
 export type CarKey = "roadster" | "suv" | "racer";
+export type Mode = "solo" | "split" | "online";
 
 export const CARS: Record<CarKey, {
-  name: string;
-  tag: string;
-  color: string;
-  accent: string;
-  stats: { speed: number; grip: number; accel: number };
-  desc: string;
+  name: string; tag: string; color: string; accent: string;
+  stats: { speed: number; grip: number; accel: number }; desc: string;
 }> = {
   roadster: {
     name: "Aurora GT", tag: "Cabrio · Tour", color: "#e8c547", accent: "oklch(0.78 0.18 75)",
@@ -42,10 +39,18 @@ export function CarSelect({
   onSelect,
   onBuildNew,
   onEdit,
+  mode = "solo",
+  onModeChange,
+  headline,
+  hideBuildActions = false,
 }: {
   onSelect: (sel: GarageSelection) => void;
   onBuildNew: () => void;
   onEdit: (car: CustomCar) => void;
+  mode?: Mode;
+  onModeChange?: (m: Mode) => void;
+  headline?: string;
+  hideBuildActions?: boolean;
 }) {
   const [hover, setHover] = useState<CarKey>("roadster");
   const [customCars, setCustomCars] = useState<CustomCar[]>([]);
@@ -66,7 +71,7 @@ export function CarSelect({
     setError(null);
     try {
       const car = await importCarFromFile(file);
-      saveCar(car, false); // import doesn't count against daily limit
+      saveCar(car, false);
       refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Import fehlgeschlagen");
@@ -74,6 +79,11 @@ export function CarSelect({
   };
 
   const keys = Object.keys(CARS) as CarKey[];
+  const modes: { id: Mode; label: string; desc: string }[] = [
+    { id: "solo", label: "Solo", desc: "Allein fahren" },
+    { id: "split", label: "2-Player Split", desc: "Geteilter Bildschirm" },
+    { id: "online", label: "Online", desc: "Raum mit Freunden" },
+  ];
 
   return (
     <main className="relative h-screen w-screen overflow-y-auto">
@@ -85,7 +95,7 @@ export function CarSelect({
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg" style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))", boxShadow: "var(--hud-glow)" }} />
             <div>
-              <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Drift Lab v1.0</p>
+              <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Drift Lab v2.0</p>
               <h1 className="text-xl font-bold">Garage</h1>
             </div>
           </div>
@@ -93,9 +103,28 @@ export function CarSelect({
         </header>
 
         <section className="mt-12">
-          <h2 className="text-4xl font-bold tracking-tight md:text-5xl">Wähle dein Fahrzeug.</h2>
+          <h2 className="text-4xl font-bold tracking-tight md:text-5xl">{headline ?? "Wähle dein Fahrzeug."}</h2>
           <p className="mt-3 max-w-xl text-muted-foreground">Drei Werks-Charaktere — oder bau dein eigenes Auto im Profi-Editor.</p>
         </section>
+
+        {onModeChange && (
+          <section className="mt-8">
+            <div className="flex flex-wrap gap-2">
+              {modes.map((m) => (
+                <button
+                  key={m.id}
+                  onClick={() => onModeChange(m.id)}
+                  className={`rounded-xl border px-5 py-3 text-left transition ${
+                    mode === m.id ? "border-primary bg-primary/10" : "border-border hover:border-primary/50"
+                  }`}
+                >
+                  <p className="font-bold">{m.label}</p>
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{m.desc}</p>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
 
         <section className="mt-10 grid gap-6 md:grid-cols-3">
           {keys.map((k) => {
@@ -127,95 +156,92 @@ export function CarSelect({
                     <Stat label="Grip" value={car.stats.grip} color={car.accent} />
                     <Stat label="Accel" value={car.stats.accel} color={car.accent} />
                   </dl>
-                  <div className="mt-6 flex items-center justify-between font-mono text-xs uppercase tracking-widest">
-                    <span className="text-muted-foreground">Auswählen</span>
-                    <span style={{ color: car.accent }}>→</span>
-                  </div>
                 </div>
               </button>
             );
           })}
         </section>
 
-        {/* Meine Autos */}
-        <section className="mt-16">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <div>
-              <h2 className="text-3xl font-bold tracking-tight">Meine Autos</h2>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {remaining > 0
-                  ? `${remaining} von ${DAILY_LIMIT} neuen Autos heute übrig.`
-                  : "Tageslimit erreicht — komm morgen wieder oder bearbeite vorhandene Autos."}
-              </p>
+        {!hideBuildActions && (
+          <section className="mt-16">
+            <div className="flex flex-wrap items-end justify-between gap-3">
+              <div>
+                <h2 className="text-3xl font-bold tracking-tight">Meine Autos</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {remaining > 0
+                    ? `${remaining} von ${DAILY_LIMIT} neuen Autos heute übrig.`
+                    : "Tageslimit erreicht — komm morgen wieder oder bearbeite vorhandene Autos."}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <label className="cursor-pointer rounded-lg border px-4 py-2 text-sm hover:border-primary">
+                  Mod / Auto importieren
+                  <input type="file" accept=".json,application/json" className="hidden"
+                    onChange={async (e) => {
+                      const f = e.target.files?.[0];
+                      if (f) await handleImport(f);
+                      e.target.value = "";
+                    }} />
+                </label>
+                <button
+                  onClick={onBuildNew}
+                  disabled={remaining <= 0}
+                  className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
+                  style={{ boxShadow: remaining > 0 ? "var(--hud-glow)" : undefined }}
+                >
+                  + Neues Auto bauen
+                </button>
+              </div>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <label className="cursor-pointer rounded-lg border px-4 py-2 text-sm hover:border-primary">
-                Mod / Auto importieren
-                <input type="file" accept=".json,application/json" className="hidden"
-                  onChange={async (e) => {
-                    const f = e.target.files?.[0];
-                    if (f) await handleImport(f);
-                    e.target.value = "";
-                  }} />
-              </label>
-              <button
-                onClick={onBuildNew}
-                disabled={remaining <= 0}
-                className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
-                style={{ boxShadow: remaining > 0 ? "var(--hud-glow)" : undefined }}
-              >
-                + Neues Auto bauen
-              </button>
-            </div>
-          </div>
 
-          {error && (
-            <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-              {error}
-            </div>
-          )}
+            {error && (
+              <div className="mt-4 rounded-lg border border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive">
+                {error}
+              </div>
+            )}
 
-          {customCars.length === 0 ? (
-            <div className="mt-6 rounded-2xl border border-dashed bg-card/40 p-10 text-center">
-              <p className="text-muted-foreground">Noch keine eigenen Autos. Klick „+ Neues Auto bauen" um zu starten.</p>
-            </div>
-          ) : (
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
-              {customCars.map((c) => (
-                <div key={c.id} className="rounded-2xl border bg-card p-5"
-                     style={{ borderColor: c.appearance.primaryColor + "55" }}>
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground capitalize">{c.appearance.bodyType}</p>
-                      <h3 className="mt-1 text-xl font-bold">{c.name}</h3>
+            {customCars.length === 0 ? (
+              <div className="mt-6 rounded-2xl border border-dashed bg-card/40 p-10 text-center">
+                <p className="text-muted-foreground">Noch keine eigenen Autos. Klick „+ Neues Auto bauen" um zu starten.</p>
+              </div>
+            ) : (
+              <div className="mt-6 grid gap-4 md:grid-cols-3">
+                {customCars.map((c) => (
+                  <div key={c.id} className="rounded-2xl border bg-card p-5"
+                       style={{ borderColor: c.appearance.primaryColor + "55" }}>
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground capitalize">{c.appearance.bodyType}</p>
+                        <h3 className="mt-1 text-xl font-bold">{c.name}</h3>
+                      </div>
+                      <div className="h-8 w-8 rounded-full" style={{ background: c.appearance.primaryColor, boxShadow: `0 0 24px ${c.appearance.primaryColor}88` }} />
                     </div>
-                    <div className="h-8 w-8 rounded-full" style={{ background: c.appearance.primaryColor, boxShadow: `0 0 24px ${c.appearance.primaryColor}88` }} />
+                    <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
+                      <Mini label="Top" value={`${Math.round(c.tuning.topSpeed)} km/h`} />
+                      <Mini label="0–100" value={`${c.tuning.time0to100.toFixed(1)} s`} />
+                      <Mini label="Grip" value={String(Math.round(c.tuning.grip))} />
+                      <Mini label="Antrieb" value={c.tuning.drive} />
+                    </dl>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <button onClick={() => onSelect({ kind: "custom", car: c })}
+                        className="flex-1 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
+                        Fahren
+                      </button>
+                      <button onClick={() => onEdit(c)}
+                        className="rounded-md border px-3 py-2 text-xs hover:border-primary">Bearbeiten</button>
+                      <button onClick={() => downloadCar(c)}
+                        className="rounded-md border px-3 py-2 text-xs hover:border-primary">Export</button>
+                      <button onClick={() => { if (confirm(`„${c.name}" wirklich löschen?`)) { deleteCar(c.id); refresh(); } }}
+                        className="rounded-md border border-destructive/40 px-3 py-2 text-xs text-destructive hover:bg-destructive/10">
+                        ✕
+                      </button>
+                    </div>
                   </div>
-                  <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                    <Mini label="Top" value={`${Math.round(c.tuning.topSpeed)} km/h`} />
-                    <Mini label="0–100" value={`${c.tuning.time0to100.toFixed(1)} s`} />
-                    <Mini label="Grip" value={String(Math.round(c.tuning.grip))} />
-                    <Mini label="Antrieb" value={c.tuning.drive} />
-                  </dl>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button onClick={() => onSelect({ kind: "custom", car: c })}
-                      className="flex-1 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground">
-                      Fahren
-                    </button>
-                    <button onClick={() => onEdit(c)}
-                      className="rounded-md border px-3 py-2 text-xs hover:border-primary">Bearbeiten</button>
-                    <button onClick={() => downloadCar(c)}
-                      className="rounded-md border px-3 py-2 text-xs hover:border-primary">Export</button>
-                    <button onClick={() => { if (confirm(`„${c.name}" wirklich löschen?`)) { deleteCar(c.id); refresh(); } }}
-                      className="rounded-md border border-destructive/40 px-3 py-2 text-xs text-destructive hover:bg-destructive/10">
-                      ✕
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </section>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         <footer className="mt-auto pt-12 font-mono text-xs text-muted-foreground">
           © Drift Lab — Mod-Sharing über .car.json
