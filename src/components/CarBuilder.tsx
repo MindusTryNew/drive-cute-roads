@@ -7,12 +7,16 @@ import {
   type PartRef,
   emptyCar,
   saveCar,
+  listCars,
   remainingToday,
   canCreateToday,
   downloadCar,
 } from "@/lib/garage";
 import { savePart, deletePart } from "@/lib/parts-store";
 import { buildCarGroup } from "@/lib/car-renderer";
+import { shiftSpeeds, distributeRatios } from "@/lib/car-spec";
+import { priceForCar } from "@/lib/car-price";
+import { getCoins, spendCoins, subscribeCoins, getSlots } from "@/lib/coins";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
