@@ -206,11 +206,13 @@ export function buildWorld(scene: THREE.Scene, opts: WorldOptions = {}): WorldRe
     scene.add(light);
     streetLights.push(light);
   };
-  for (const z of roadsZ) {
-    for (let x = -reach; x <= reach; x += 60) addLamp(x, z + roadW / 2 + 1);
-  }
-  for (const x of roadsX) {
-    for (let z = -reach; z <= reach; z += 60) addLamp(x + roadW / 2 + 1, z);
+  if (enableStreetLights) {
+    for (const z of roadsZ) {
+      for (let x = -reach; x <= reach; x += 60) addLamp(x, z + roadW / 2 + 1);
+    }
+    for (const x of roadsX) {
+      for (let z = -reach; z <= reach; z += 60) addLamp(x + roadW / 2 + 1, z);
+    }
   }
 
   return {
