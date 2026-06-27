@@ -9,6 +9,7 @@ import {
   downloadCar,
   type CustomCar,
 } from "@/lib/garage";
+import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot } from "@/lib/coins";
 
 export type CarKey = "roadster" | "suv" | "racer";
 export type Mode = "solo" | "split" | "online";
