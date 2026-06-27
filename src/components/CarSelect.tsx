@@ -109,7 +109,7 @@ export function CarSelect({
            style={{ backgroundImage: "linear-gradient(oklch(1 0 0 / 0.06) 1px, transparent 1px), linear-gradient(90deg, oklch(1 0 0 / 0.06) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
 
       <div className="relative mx-auto flex min-h-full max-w-6xl flex-col px-6 py-10">
-        <header className="flex items-center justify-between">
+        <header className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg" style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))", boxShadow: "var(--hud-glow)" }} />
             <div>
@@ -117,7 +117,20 @@ export function CarSelect({
               <h1 className="text-xl font-bold">Garage</h1>
             </div>
           </div>
-          <p className="font-mono text-xs text-muted-foreground">WASD / ↑ ↓ ← → · Leertaste = Bremse</p>
+          <div className="flex items-center gap-2">
+            {onOpenMissions && (
+              <button onClick={onOpenMissions}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Missionen</button>
+            )}
+            {onOpenMarket && (
+              <button onClick={onOpenMarket}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Markt</button>
+            )}
+            <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5">
+              <span>🪙</span>
+              <span className="font-mono text-sm tabular-nums">{coins}</span>
+            </div>
+          </div>
         </header>
 
         <section className="mt-12">
