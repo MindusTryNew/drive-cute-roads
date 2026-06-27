@@ -199,12 +199,21 @@ export function CarSelect({
               <div>
                 <h2 className="text-3xl font-bold tracking-tight">Meine Autos</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
+                  Garage: <b>{customCars.length}/{slots}</b> Plätze belegt ·{" "}
                   {remaining > 0
-                    ? `${remaining} von ${DAILY_LIMIT} neuen Autos heute übrig.`
-                    : "Tageslimit erreicht — komm morgen wieder oder bearbeite vorhandene Autos."}
+                    ? `${remaining}/${DAILY_LIMIT} neue Autos heute übrig`
+                    : "Tageslimit erreicht"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={buySlot}
+                  className="rounded-lg border px-4 py-2 text-sm hover:border-primary disabled:opacity-40"
+                  disabled={coins < nextSlotPrice()}
+                  title={`Neuer Slot kostet 🪙 ${nextSlotPrice()}`}
+                >
+                  + Garagen-Slot (🪙 {nextSlotPrice()})
+                </button>
                 <label className="cursor-pointer rounded-lg border px-4 py-2 text-sm hover:border-primary">
                   Mod / Auto importieren
                   <input type="file" accept=".json,application/json" className="hidden"
@@ -216,9 +225,9 @@ export function CarSelect({
                 </label>
                 <button
                   onClick={onBuildNew}
-                  disabled={remaining <= 0}
+                  disabled={remaining <= 0 || customCars.length >= slots}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
-                  style={{ boxShadow: remaining > 0 ? "var(--hud-glow)" : undefined }}
+                  style={{ boxShadow: remaining > 0 && customCars.length < slots ? "var(--hud-glow)" : undefined }}
                 >
                   + Neues Auto bauen
                 </button>
