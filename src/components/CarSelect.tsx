@@ -61,15 +61,28 @@ export function CarSelect({
   const [customCars, setCustomCars] = useState<CustomCar[]>([]);
   const [remaining, setRemaining] = useState(DAILY_LIMIT);
   const [error, setError] = useState<string | null>(null);
+  const [coins, setCoins] = useState(getCoins());
+  const [slots, setSlots] = useState(getSlots());
 
   useEffect(() => {
     setCustomCars(listCars());
     setRemaining(remainingToday());
+    const un = subscribeCoins(setCoins);
+    return () => { un(); };
   }, []);
 
   const refresh = () => {
     setCustomCars(listCars());
     setRemaining(remainingToday());
+    setSlots(getSlots());
+    setCoins(getCoins());
+  };
+
+  const buySlot = () => {
+    const p = nextSlotPrice();
+    if (!spendCoins(p)) { setError(`Nicht genug Coins (🪙 ${p} nötig).`); return; }
+    addSlot();
+    refresh();
   };
 
   const handleImport = async (file: File) => {
