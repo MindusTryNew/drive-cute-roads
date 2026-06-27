@@ -149,23 +149,22 @@ export function buildWorld(scene: THREE.Scene, opts: WorldOptions = {}): WorldRe
   const buildings: Building[] = [];
   const rng = mulberry32(1337);
 
-  for (let i = 0; i < 120; i++) {
+  let attempts = 0;
+  while (buildings.length < buildingCount && attempts < buildingCount * 6) {
+    attempts++;
     const x = (rng() - 0.5) * (WORLD_SIZE - 60);
     const z = (rng() - 0.5) * (WORLD_SIZE - 60);
-    // Skip if inside offroad zone
     if (x > 60 && z < -60) continue;
-    // Skip if inside race track ring
     if (Math.sqrt(x * x + z * z) < outerR + 6) continue;
-    // Skip if on a road
     if (roadsX.some((rx) => Math.abs(x - rx) < roadW)) continue;
     if (roadsZ.some((rz) => Math.abs(z - rz) < roadW)) continue;
 
     const h = 6 + rng() * 30;
     const w = 6 + rng() * 10;
     const d = 6 + rng() * 10;
-    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bldMat(colors[i % colors.length]));
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bldMat(colors[buildings.length % colors.length]));
     b.position.set(x, h / 2, z);
-    b.castShadow = true; b.receiveShadow = true;
+    b.castShadow = shadows; b.receiveShadow = shadows;
     scene.add(b);
     buildings.push({ x, z, w, d });
   }
