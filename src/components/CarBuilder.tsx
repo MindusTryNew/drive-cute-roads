@@ -114,11 +114,25 @@ export function CarBuilder({
 
   const handleSave = () => {
     setError(null);
-    if (isNew && !canCreateToday()) {
-      setError(`Tageslimit erreicht (${0} übrig). Komm morgen wieder oder bearbeite vorhandene Autos.`);
-      return;
+    if (isNew) {
+      if (!canCreateToday()) {
+        setError(`Tageslimit erreicht. Komm morgen wieder oder bearbeite vorhandene Autos.`);
+        return;
+      }
+      if (listCars().length >= getSlots()) {
+        setError(`Garage voll (${getSlots()} Plätze). Kaufe einen weiteren Slot im Garagen-Screen.`);
+        return;
+      }
+      if (getCoins() < price) {
+        setError(`Nicht genug Coins — dieses Auto kostet 🪙 ${price}.`);
+        return;
+      }
     }
     try {
+      if (isNew && !spendCoins(price)) {
+        setError("Coin-Abbuchung fehlgeschlagen.");
+        return;
+      }
       saveCar(car, isNew);
       onSaved(car);
     } catch (e) {
