@@ -40,6 +40,8 @@ export function CarSelect({
   onSelect,
   onBuildNew,
   onEdit,
+  onOpenMarket,
+  onOpenMissions,
   mode = "solo",
   onModeChange,
   headline,
@@ -48,6 +50,8 @@ export function CarSelect({
   onSelect: (sel: GarageSelection) => void;
   onBuildNew: () => void;
   onEdit: (car: CustomCar) => void;
+  onOpenMarket?: () => void;
+  onOpenMissions?: () => void;
   mode?: Mode;
   onModeChange?: (m: Mode) => void;
   headline?: string;
