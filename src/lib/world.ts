@@ -75,7 +75,7 @@ export function buildWorld(scene: THREE.Scene, opts: WorldOptions = {}): WorldRe
     new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.95 }),
   );
   ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
+  ground.receiveShadow = shadows;
   scene.add(ground);
 
   // Race track ring
