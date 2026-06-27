@@ -52,7 +52,7 @@ export async function purchaseListing(listing: MarketListing): Promise<CustomCar
   car.id = crypto.randomUUID();
   car.createdAt = Date.now();
   // Bump counter (best-effort; failure doesn't block the purchase locally)
-  await supabase.rpc("increment_market_purchase", { _id: listing.id }).catch(() => {});
+  try { await supabase.rpc("increment_market_purchase", { _id: listing.id }); } catch { /* ignore */ }
   return car;
 }
 
