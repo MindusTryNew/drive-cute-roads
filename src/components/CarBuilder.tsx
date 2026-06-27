@@ -183,11 +183,21 @@ export function CarBuilder({
             />
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="hidden rounded-lg border bg-card px-3 py-1.5 text-right sm:block">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">{isNew ? "Kosten" : "Wert"}</p>
+            <p className="font-mono text-sm font-bold tabular-nums">🪙 {price}</p>
+          </div>
+          <div className="hidden rounded-lg border bg-card px-3 py-1.5 text-right sm:block">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Guthaben</p>
+            <p className={`font-mono text-sm font-bold tabular-nums ${isNew && coins < price ? "text-destructive" : ""}`}>🪙 {coins}</p>
+          </div>
           {!isNew && (
             <Button variant="outline" onClick={() => downloadCar(car)}>Export .car.json</Button>
           )}
-          <Button onClick={handleSave}>Speichern</Button>
+          <Button onClick={handleSave} disabled={isNew && coins < price}>
+            {isNew ? `Bauen · 🪙 ${price}` : "Speichern"}
+          </Button>
         </div>
       </header>
 
