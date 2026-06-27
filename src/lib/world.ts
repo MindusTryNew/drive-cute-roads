@@ -33,17 +33,26 @@ function hill(x: number, z: number): number {
   return Math.max(0, h * fade);
 }
 
-export function buildWorld(scene: THREE.Scene): WorldRefs {
+export type WorldOptions = { buildingCount?: number; shadows?: boolean; fogNear?: number; fogFar?: number; streetLights?: boolean; shadowMapSize?: number };
+
+export function buildWorld(scene: THREE.Scene, opts: WorldOptions = {}): WorldRefs {
+  const buildingCount = opts.buildingCount ?? 120;
+  const shadows = opts.shadows ?? true;
+  const fogNear = opts.fogNear ?? 200;
+  const fogFar = opts.fogFar ?? 500;
+  const enableStreetLights = opts.streetLights ?? true;
+  const shadowMapSize = opts.shadowMapSize ?? 2048;
+
   scene.background = new THREE.Color("#0d1220");
-  const fog = new THREE.Fog("#0d1220", 200, 500);
+  const fog = new THREE.Fog("#0d1220", fogNear, fogFar);
   scene.fog = fog;
 
   const hemi = new THREE.HemisphereLight(0x8899ff, 0x222233, 0.6);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff1d6, 1.1);
   sun.position.set(60, 80, 40);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.castShadow = shadows;
+  sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
   const s = 250;
   sun.shadow.camera.left = -s; sun.shadow.camera.right = s;
   sun.shadow.camera.top = s; sun.shadow.camera.bottom = -s;
@@ -66,7 +75,7 @@ export function buildWorld(scene: THREE.Scene): WorldRefs {
     new THREE.MeshStandardMaterial({ color: 0x2a3140, roughness: 0.95 }),
   );
   ground.rotation.x = -Math.PI / 2;
-  ground.receiveShadow = true;
+  ground.receiveShadow = shadows;
   scene.add(ground);
 
   // Race track ring
@@ -140,23 +149,22 @@ export function buildWorld(scene: THREE.Scene): WorldRefs {
   const buildings: Building[] = [];
   const rng = mulberry32(1337);
 
-  for (let i = 0; i < 120; i++) {
+  let attempts = 0;
+  while (buildings.length < buildingCount && attempts < buildingCount * 6) {
+    attempts++;
     const x = (rng() - 0.5) * (WORLD_SIZE - 60);
     const z = (rng() - 0.5) * (WORLD_SIZE - 60);
-    // Skip if inside offroad zone
     if (x > 60 && z < -60) continue;
-    // Skip if inside race track ring
     if (Math.sqrt(x * x + z * z) < outerR + 6) continue;
-    // Skip if on a road
     if (roadsX.some((rx) => Math.abs(x - rx) < roadW)) continue;
     if (roadsZ.some((rz) => Math.abs(z - rz) < roadW)) continue;
 
     const h = 6 + rng() * 30;
     const w = 6 + rng() * 10;
     const d = 6 + rng() * 10;
-    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bldMat(colors[i % colors.length]));
+    const b = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), bldMat(colors[buildings.length % colors.length]));
     b.position.set(x, h / 2, z);
-    b.castShadow = true; b.receiveShadow = true;
+    b.castShadow = shadows; b.receiveShadow = shadows;
     scene.add(b);
     buildings.push({ x, z, w, d });
   }
@@ -198,11 +206,13 @@ export function buildWorld(scene: THREE.Scene): WorldRefs {
     scene.add(light);
     streetLights.push(light);
   };
-  for (const z of roadsZ) {
-    for (let x = -reach; x <= reach; x += 60) addLamp(x, z + roadW / 2 + 1);
-  }
-  for (const x of roadsX) {
-    for (let z = -reach; z <= reach; z += 60) addLamp(x + roadW / 2 + 1, z);
+  if (enableStreetLights) {
+    for (const z of roadsZ) {
+      for (let x = -reach; x <= reach; x += 60) addLamp(x, z + roadW / 2 + 1);
+    }
+    for (const x of roadsX) {
+      for (let z = -reach; z <= reach; z += 60) addLamp(x + roadW / 2 + 1, z);
+    }
   }
 
   return {

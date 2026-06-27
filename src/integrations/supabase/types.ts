@@ -14,13 +14,54 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      market_cars: {
+        Row: {
+          body_type: string
+          car_json: Json
+          car_name: string
+          id: string
+          listed_at: string
+          price: number
+          primary_color: string
+          seller_nick: string
+          time_0_100: number
+          times_purchased: number
+          top_speed: number
+        }
+        Insert: {
+          body_type: string
+          car_json: Json
+          car_name: string
+          id?: string
+          listed_at?: string
+          price: number
+          primary_color: string
+          seller_nick: string
+          time_0_100: number
+          times_purchased?: number
+          top_speed: number
+        }
+        Update: {
+          body_type?: string
+          car_json?: Json
+          car_name?: string
+          id?: string
+          listed_at?: string
+          price?: number
+          primary_color?: string
+          seller_nick?: string
+          time_0_100?: number
+          times_purchased?: number
+          top_speed?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      increment_market_purchase: { Args: { _id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

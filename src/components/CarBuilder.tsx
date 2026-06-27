@@ -7,12 +7,16 @@ import {
   type PartRef,
   emptyCar,
   saveCar,
+  listCars,
   remainingToday,
   canCreateToday,
   downloadCar,
 } from "@/lib/garage";
 import { savePart, deletePart } from "@/lib/parts-store";
 import { buildCarGroup } from "@/lib/car-renderer";
+import { shiftSpeeds, distributeRatios } from "@/lib/car-spec";
+import { priceForCar } from "@/lib/car-price";
+import { getCoins, spendCoins, subscribeCoins, getSlots } from "@/lib/coins";
 import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
@@ -31,6 +35,10 @@ export function CarBuilder({
   const [car, setCar] = useState<CustomCar>(() => initial ?? emptyCar());
   const [error, setError] = useState<string | null>(null);
   const remaining = useMemo(() => remainingToday(), []);
+  const [coins, setCoins] = useState(getCoins());
+  useEffect(() => subscribeCoins(setCoins), []);
+  const price = useMemo(() => priceForCar(car.tuning, car.appearance), [car.tuning, car.appearance]);
+  const shifts = useMemo(() => shiftSpeeds(car.tuning), [car.tuning]);
 
   const mountRef = useRef<HTMLDivElement>(null);
   const carGroupRef = useRef<THREE.Group | null>(null);
@@ -106,11 +114,25 @@ export function CarBuilder({
 
   const handleSave = () => {
     setError(null);
-    if (isNew && !canCreateToday()) {
-      setError(`Tageslimit erreicht (${0} übrig). Komm morgen wieder oder bearbeite vorhandene Autos.`);
-      return;
+    if (isNew) {
+      if (!canCreateToday()) {
+        setError(`Tageslimit erreicht. Komm morgen wieder oder bearbeite vorhandene Autos.`);
+        return;
+      }
+      if (listCars().length >= getSlots()) {
+        setError(`Garage voll (${getSlots()} Plätze). Kaufe einen weiteren Slot im Garagen-Screen.`);
+        return;
+      }
+      if (getCoins() < price) {
+        setError(`Nicht genug Coins — dieses Auto kostet 🪙 ${price}.`);
+        return;
+      }
     }
     try {
+      if (isNew && !spendCoins(price)) {
+        setError("Coin-Abbuchung fehlgeschlagen.");
+        return;
+      }
       saveCar(car, isNew);
       onSaved(car);
     } catch (e) {
@@ -161,11 +183,21 @@ export function CarBuilder({
             />
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="hidden rounded-lg border bg-card px-3 py-1.5 text-right sm:block">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">{isNew ? "Kosten" : "Wert"}</p>
+            <p className="font-mono text-sm font-bold tabular-nums">🪙 {price}</p>
+          </div>
+          <div className="hidden rounded-lg border bg-card px-3 py-1.5 text-right sm:block">
+            <p className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">Guthaben</p>
+            <p className={`font-mono text-sm font-bold tabular-nums ${isNew && coins < price ? "text-destructive" : ""}`}>🪙 {coins}</p>
+          </div>
           {!isNew && (
             <Button variant="outline" onClick={() => downloadCar(car)}>Export .car.json</Button>
           )}
-          <Button onClick={handleSave}>Speichern</Button>
+          <Button onClick={handleSave} disabled={isNew && coins < price}>
+            {isNew ? `Bauen · 🪙 ${price}` : "Speichern"}
+          </Button>
         </div>
       </header>
 
@@ -244,17 +276,30 @@ export function CarBuilder({
               while (ratios.length > gears) ratios.pop();
               setCar((c) => ({ ...c, tuning: { ...c.tuning, gears, gearRatios: ratios } }));
             }} />
+          <div className="mt-3 flex items-center justify-between">
+            <Label className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Übersetzungen & Schaltpunkte</Label>
+            <button
+              onClick={() => {
+                const ratios = distributeRatios(car.tuning.gears);
+                setCar((c) => ({ ...c, tuning: { ...c.tuning, gearRatios: ratios } }));
+              }}
+              className="rounded-md border px-2 py-1 text-[10px] hover:border-primary"
+            >Gänge auto-verteilen</button>
+          </div>
           <div className="mt-2 space-y-2">
             {car.tuning.gearRatios.slice(0, car.tuning.gears).map((r, i) => (
               <div key={i} className="flex items-center gap-3">
-                <span className="w-10 font-mono text-[10px] text-muted-foreground">G{i + 1}</span>
+                <span className="w-8 font-mono text-[10px] text-muted-foreground">G{i + 1}</span>
                 <Slider min={0.3} max={5} step={0.05} value={[r]}
                   onValueChange={([v]) => {
                     const next = [...car.tuning.gearRatios];
                     next[i] = v;
                     setCar((c) => ({ ...c, tuning: { ...c.tuning, gearRatios: next } }));
                   }} />
-                <span className="w-12 text-right font-mono text-xs">{r.toFixed(2)}</span>
+                <span className="w-10 text-right font-mono text-xs">{r.toFixed(2)}</span>
+                <span className="w-20 text-right font-mono text-[10px] text-muted-foreground">
+                  bis {shifts[i] ?? 0} km/h
+                </span>
               </div>
             ))}
           </div>

@@ -4,6 +4,8 @@ import { CarSelect, type GarageSelection, type Mode as PickMode } from "@/compon
 import { CarBuilder } from "@/components/CarBuilder";
 import { Simulator } from "@/components/Simulator";
 import { Lobby } from "@/components/Lobby";
+import { Market } from "@/components/Market";
+import { MissionsScreen } from "@/components/MissionsScreen";
 import { presetToSpec, customToSpec, type CarSpec } from "@/lib/car-spec";
 import type { CustomCar } from "@/lib/garage";
 
@@ -11,7 +13,7 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Drift Lab — 3D Auto Simulator" },
-      { name: "description", content: "Wähle dein Auto, bau dein eigenes mit Profi-Tuning und Mods, fahre Solo, Split-Screen oder online." },
+      { name: "description", content: "Bau eigene Autos, fahre Missionen, handle auf dem öffentlichen Markt, spiele Solo, Split-Screen oder online." },
     ],
   }),
   component: Index,
@@ -20,6 +22,8 @@ export const Route = createFileRoute("/")({
 type View =
   | { kind: "garage" }
   | { kind: "builder"; car: CustomCar | null }
+  | { kind: "market" }
+  | { kind: "missions" }
   | { kind: "pick-p2"; spec1: CarSpec }
   | { kind: "lobby"; spec: CarSpec }
   | { kind: "sim-solo"; spec: CarSpec }
@@ -60,6 +64,12 @@ function Index() {
       />
     );
   }
+  if (view.kind === "market") {
+    return <Market onBack={() => setView({ kind: "garage" })} />;
+  }
+  if (view.kind === "missions") {
+    return <MissionsScreen onBack={() => setView({ kind: "garage" })} />;
+  }
   if (view.kind === "pick-p2") {
     return (
       <CarSelect
@@ -78,6 +88,8 @@ function Index() {
     <CarSelect
       mode={mode}
       onModeChange={setMode}
+      onOpenMarket={() => setView({ kind: "market" })}
+      onOpenMissions={() => setView({ kind: "missions" })}
       onSelect={(sel) => {
         const spec = specOf(sel);
         if (mode === "solo") setView({ kind: "sim-solo", spec });

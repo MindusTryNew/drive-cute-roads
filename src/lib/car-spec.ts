@@ -61,7 +61,7 @@ export function customToSpec(car: CustomCar): CarSpec {
   };
 }
 
-// No hard caps — but guard against NaN/Infinity and friction >= 1 (would never decelerate).
+// Guard against NaN/Infinity. Smoother grip curve + slow-down at top speed.
 const safe = (v: number, def: number) => (Number.isFinite(v) && v > 0 ? v : def);
 
 export function physicsFromTuning(t: Tuning) {
@@ -71,8 +71,32 @@ export function physicsFromTuning(t: Tuning) {
   const steer = safe(t.steerAngle, 30);
 
   const maxSpeed = top / 380;
-  const accel = maxSpeed / Math.max(0.1, t100 * 60) * 1.6;
-  const friction = Math.min(0.999, 0.95 + Math.min(grip, 200) / 100 * 0.025);
-  const turnSpeed = 0.004 + Math.min(steer, 180) / 45 * 0.012 + Math.min(grip, 200) / 100 * 0.004;
-  return { maxSpeed, accel, friction, turnSpeed, reverseFactor: 0.5 };
+  const accel = (maxSpeed / Math.max(0.1, t100 * 60)) * 1.6;
+  // Smoother friction curve (was 0.025) → less twitchy at high grip
+  const friction = Math.min(0.999, 0.92 + Math.min(grip, 150) / 150 * 0.07);
+  // Base steer rate — applied with a high-speed dampening in the simulator
+  const turnSpeed = 0.0035 + Math.min(steer, 180) / 45 * 0.011 + Math.min(grip, 200) / 100 * 0.003;
+  return { maxSpeed, accel, friction, turnSpeed, reverseFactor: 0.4 };
+}
+
+// Compute the km/h at which each gear is fully wound out (rough approximation
+// using gear ratios as inverse multipliers of topSpeed in last gear).
+export function shiftSpeeds(t: Tuning): number[] {
+  const top = safe(t.topSpeed, 240);
+  const ratios = t.gearRatios.slice(0, t.gears);
+  if (ratios.length === 0) return [];
+  const minRatio = Math.min(...ratios);
+  // Last gear hits top speed. Lower gears scale linearly with minRatio/ratio[i].
+  return ratios.map((r) => Math.round(top * (minRatio / Math.max(0.001, r))));
+}
+
+// Distribute gear ratios evenly between max (G1) and min (last).
+export function distributeRatios(gears: number, maxRatio = 3.5, minRatio = 0.7): number[] {
+  if (gears <= 1) return [minRatio];
+  const out: number[] = [];
+  for (let i = 0; i < gears; i++) {
+    const t = i / (gears - 1);
+    out.push(Math.round((maxRatio + (minRatio - maxRatio) * t) * 100) / 100);
+  }
+  return out;
 }

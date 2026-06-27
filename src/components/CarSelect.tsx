@@ -9,6 +9,7 @@ import {
   downloadCar,
   type CustomCar,
 } from "@/lib/garage";
+import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot } from "@/lib/coins";
 
 export type CarKey = "roadster" | "suv" | "racer";
 export type Mode = "solo" | "split" | "online";
@@ -39,6 +40,8 @@ export function CarSelect({
   onSelect,
   onBuildNew,
   onEdit,
+  onOpenMarket,
+  onOpenMissions,
   mode = "solo",
   onModeChange,
   headline,
@@ -47,6 +50,8 @@ export function CarSelect({
   onSelect: (sel: GarageSelection) => void;
   onBuildNew: () => void;
   onEdit: (car: CustomCar) => void;
+  onOpenMarket?: () => void;
+  onOpenMissions?: () => void;
   mode?: Mode;
   onModeChange?: (m: Mode) => void;
   headline?: string;
@@ -56,15 +61,28 @@ export function CarSelect({
   const [customCars, setCustomCars] = useState<CustomCar[]>([]);
   const [remaining, setRemaining] = useState(DAILY_LIMIT);
   const [error, setError] = useState<string | null>(null);
+  const [coins, setCoins] = useState(getCoins());
+  const [slots, setSlots] = useState(getSlots());
 
   useEffect(() => {
     setCustomCars(listCars());
     setRemaining(remainingToday());
+    const un = subscribeCoins(setCoins);
+    return () => { un(); };
   }, []);
 
   const refresh = () => {
     setCustomCars(listCars());
     setRemaining(remainingToday());
+    setSlots(getSlots());
+    setCoins(getCoins());
+  };
+
+  const buySlot = () => {
+    const p = nextSlotPrice();
+    if (!spendCoins(p)) { setError(`Nicht genug Coins (🪙 ${p} nötig).`); return; }
+    addSlot();
+    refresh();
   };
 
   const handleImport = async (file: File) => {
@@ -91,7 +109,7 @@ export function CarSelect({
            style={{ backgroundImage: "linear-gradient(oklch(1 0 0 / 0.06) 1px, transparent 1px), linear-gradient(90deg, oklch(1 0 0 / 0.06) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
 
       <div className="relative mx-auto flex min-h-full max-w-6xl flex-col px-6 py-10">
-        <header className="flex items-center justify-between">
+        <header className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-3">
             <div className="h-9 w-9 rounded-lg" style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))", boxShadow: "var(--hud-glow)" }} />
             <div>
@@ -99,7 +117,20 @@ export function CarSelect({
               <h1 className="text-xl font-bold">Garage</h1>
             </div>
           </div>
-          <p className="font-mono text-xs text-muted-foreground">WASD / ↑ ↓ ← → · Leertaste = Bremse</p>
+          <div className="flex items-center gap-2">
+            {onOpenMissions && (
+              <button onClick={onOpenMissions}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Missionen</button>
+            )}
+            {onOpenMarket && (
+              <button onClick={onOpenMarket}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Markt</button>
+            )}
+            <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5">
+              <span>🪙</span>
+              <span className="font-mono text-sm tabular-nums">{coins}</span>
+            </div>
+          </div>
         </header>
 
         <section className="mt-12">
@@ -168,12 +199,21 @@ export function CarSelect({
               <div>
                 <h2 className="text-3xl font-bold tracking-tight">Meine Autos</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
+                  Garage: <b>{customCars.length}/{slots}</b> Plätze belegt ·{" "}
                   {remaining > 0
-                    ? `${remaining} von ${DAILY_LIMIT} neuen Autos heute übrig.`
-                    : "Tageslimit erreicht — komm morgen wieder oder bearbeite vorhandene Autos."}
+                    ? `${remaining}/${DAILY_LIMIT} neue Autos heute übrig`
+                    : "Tageslimit erreicht"}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
+                <button
+                  onClick={buySlot}
+                  className="rounded-lg border px-4 py-2 text-sm hover:border-primary disabled:opacity-40"
+                  disabled={coins < nextSlotPrice()}
+                  title={`Neuer Slot kostet 🪙 ${nextSlotPrice()}`}
+                >
+                  + Garagen-Slot (🪙 {nextSlotPrice()})
+                </button>
                 <label className="cursor-pointer rounded-lg border px-4 py-2 text-sm hover:border-primary">
                   Mod / Auto importieren
                   <input type="file" accept=".json,application/json" className="hidden"
@@ -185,9 +225,9 @@ export function CarSelect({
                 </label>
                 <button
                   onClick={onBuildNew}
-                  disabled={remaining <= 0}
+                  disabled={remaining <= 0 || customCars.length >= slots}
                   className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
-                  style={{ boxShadow: remaining > 0 ? "var(--hud-glow)" : undefined }}
+                  style={{ boxShadow: remaining > 0 && customCars.length < slots ? "var(--hud-glow)" : undefined }}
                 >
                   + Neues Auto bauen
                 </button>
