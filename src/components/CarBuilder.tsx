@@ -35,6 +35,10 @@ export function CarBuilder({
   const [car, setCar] = useState<CustomCar>(() => initial ?? emptyCar());
   const [error, setError] = useState<string | null>(null);
   const remaining = useMemo(() => remainingToday(), []);
+  const [coins, setCoins] = useState(getCoins());
+  useEffect(() => subscribeCoins(setCoins), []);
+  const price = useMemo(() => priceForCar(car.tuning, car.appearance), [car.tuning, car.appearance]);
+  const shifts = useMemo(() => shiftSpeeds(car.tuning), [car.tuning]);
 
   const mountRef = useRef<HTMLDivElement>(null);
   const carGroupRef = useRef<THREE.Group | null>(null);
