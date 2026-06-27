@@ -33,17 +33,26 @@ function hill(x: number, z: number): number {
   return Math.max(0, h * fade);
 }
 
-export function buildWorld(scene: THREE.Scene): WorldRefs {
+export type WorldOptions = { buildingCount?: number; shadows?: boolean; fogNear?: number; fogFar?: number; streetLights?: boolean; shadowMapSize?: number };
+
+export function buildWorld(scene: THREE.Scene, opts: WorldOptions = {}): WorldRefs {
+  const buildingCount = opts.buildingCount ?? 120;
+  const shadows = opts.shadows ?? true;
+  const fogNear = opts.fogNear ?? 200;
+  const fogFar = opts.fogFar ?? 500;
+  const enableStreetLights = opts.streetLights ?? true;
+  const shadowMapSize = opts.shadowMapSize ?? 2048;
+
   scene.background = new THREE.Color("#0d1220");
-  const fog = new THREE.Fog("#0d1220", 200, 500);
+  const fog = new THREE.Fog("#0d1220", fogNear, fogFar);
   scene.fog = fog;
 
   const hemi = new THREE.HemisphereLight(0x8899ff, 0x222233, 0.6);
   scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff1d6, 1.1);
   sun.position.set(60, 80, 40);
-  sun.castShadow = true;
-  sun.shadow.mapSize.set(2048, 2048);
+  sun.castShadow = shadows;
+  sun.shadow.mapSize.set(shadowMapSize, shadowMapSize);
   const s = 250;
   sun.shadow.camera.left = -s; sun.shadow.camera.right = s;
   sun.shadow.camera.top = s; sun.shadow.camera.bottom = -s;
