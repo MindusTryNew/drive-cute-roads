@@ -83,11 +83,14 @@ export function physicsFromTuning(t: Tuning) {
 // using gear ratios as inverse multipliers of topSpeed in last gear).
 export function shiftSpeeds(t: Tuning): number[] {
   const top = safe(t.topSpeed, 240);
-  const ratios = t.gearRatios.slice(0, t.gears);
-  if (ratios.length === 0) return [];
-  const minRatio = Math.min(...ratios);
-  // Last gear hits top speed. Lower gears scale linearly with minRatio/ratio[i].
-  return ratios.map((r) => Math.round(top * (minRatio / Math.max(0.001, r))));
+  const raw = t.gearRatios.slice(0, t.gears).filter((r) => Number.isFinite(r) && r > 0);
+  if (raw.length === 0) return [];
+  // Force monotonically increasing shift speeds by sorting ratios descending
+  // (G1 = highest ratio = lowest top speed). User-edited ratios may be out of
+  // order, which previously caused the auto-shift loop to stall mid-rev range.
+  const sorted = [...raw].sort((a, b) => b - a);
+  const minRatio = sorted[sorted.length - 1];
+  return sorted.map((r) => Math.round(top * (minRatio / Math.max(0.001, r))));
 }
 
 // Distribute gear ratios evenly between max (G1) and min (last).

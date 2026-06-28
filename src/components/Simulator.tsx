@@ -425,12 +425,13 @@ export function Simulator({
         hudT = 0;
         setSpeed(Math.round(kmh1));
         if (p2) setSpeed2(Math.round(Math.abs(p2.velocity) * 380));
-        // Gear from shift table
+        // Gear from shift table (shifts1 is monotonic ascending; last entry = top speed)
         let gIdx = 1;
-        for (let i = 0; i < shifts1.length; i++) {
-          if (kmh1 > (shifts1[i - 1] ?? 0)) gIdx = i + 1;
+        for (let i = 0; i < shifts1.length - 1; i++) {
+          if (kmh1 >= shifts1[i]) gIdx = i + 2;
+          else break;
         }
-        const next = shifts1[gIdx - 1] ?? null;
+        const next = gIdx - 1 < shifts1.length ? shifts1[gIdx - 1] : null;
         setNextShift(next);
         setGear(p1.velocity > 0.02 ? String(gIdx) : p1.velocity < -0.02 ? "R" : "N");
         setClockText(formatTime(phase));
