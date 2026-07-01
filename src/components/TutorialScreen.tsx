@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
-type Chapter = { id: string; title: string; body: JSX.Element };
+type Chapter = { id: string; title: string; body: ReactNode };
 
 const EXAMPLE_CAR = `{
   "format": "driftlab.mod",
