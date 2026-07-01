@@ -6,6 +6,8 @@ import { Simulator } from "@/components/Simulator";
 import { Lobby } from "@/components/Lobby";
 import { Market } from "@/components/Market";
 import { MissionsScreen } from "@/components/MissionsScreen";
+import { ModBrowser } from "@/components/ModBrowser";
+import { TutorialScreen } from "@/components/TutorialScreen";
 import { presetToSpec, customToSpec, type CarSpec } from "@/lib/car-spec";
 import type { CustomCar } from "@/lib/garage";
 
@@ -13,7 +15,7 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "Drift Lab — 3D Auto Simulator" },
-      { name: "description", content: "Bau eigene Autos, fahre Missionen, handle auf dem öffentlichen Markt, spiele Solo, Split-Screen oder online." },
+      { name: "description", content: "Bau eigene Autos, fahre Missionen, handle auf dem Markt, entdecke Community-Mods." },
     ],
   }),
   component: Index,
@@ -24,6 +26,8 @@ type View =
   | { kind: "builder"; car: CustomCar | null }
   | { kind: "market" }
   | { kind: "missions" }
+  | { kind: "mods" }
+  | { kind: "tutorial" }
   | { kind: "pick-p2"; spec1: CarSpec }
   | { kind: "lobby"; spec: CarSpec }
   | { kind: "sim-solo"; spec: CarSpec }
@@ -70,6 +74,12 @@ function Index() {
   if (view.kind === "missions") {
     return <MissionsScreen onBack={() => setView({ kind: "garage" })} />;
   }
+  if (view.kind === "mods") {
+    return <ModBrowser onBack={() => setView({ kind: "garage" })} onOpenTutorial={() => setView({ kind: "tutorial" })} />;
+  }
+  if (view.kind === "tutorial") {
+    return <TutorialScreen onBack={() => setView({ kind: "mods" })} />;
+  }
   if (view.kind === "pick-p2") {
     return (
       <CarSelect
@@ -90,6 +100,8 @@ function Index() {
       onModeChange={setMode}
       onOpenMarket={() => setView({ kind: "market" })}
       onOpenMissions={() => setView({ kind: "missions" })}
+      onOpenMods={() => setView({ kind: "mods" })}
+      onOpenTutorial={() => setView({ kind: "tutorial" })}
       onSelect={(sel) => {
         const spec = specOf(sel);
         if (mode === "solo") setView({ kind: "sim-solo", spec });
