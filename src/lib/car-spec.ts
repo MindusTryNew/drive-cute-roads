@@ -61,7 +61,6 @@ export function customToSpec(car: CustomCar): CarSpec {
   };
 }
 
-// Guard against NaN/Infinity. Smoother grip curve + slow-down at top speed.
 const safe = (v: number, def: number) => (Number.isFinite(v) && v > 0 ? v : def);
 
 export function physicsFromTuning(t: Tuning) {
@@ -72,28 +71,40 @@ export function physicsFromTuning(t: Tuning) {
 
   const maxSpeed = top / 380;
   const accel = (maxSpeed / Math.max(0.1, t100 * 60)) * 1.6;
-  // Smoother friction curve (was 0.025) → less twitchy at high grip
-  const friction = Math.min(0.999, 0.92 + Math.min(grip, 150) / 150 * 0.07);
-  // Base steer rate — applied with a high-speed dampening in the simulator
-  const turnSpeed = 0.0035 + Math.min(steer, 180) / 45 * 0.011 + Math.min(grip, 200) / 100 * 0.003;
+  // Sanftere Reibungskurve — high grip fühlt sich nicht mehr klebrig an.
+  const friction = Math.min(0.999, 0.93 + Math.min(grip, 150) / 150 * 0.06);
+  // Basis-Lenkrate — im Simulator wird sie geschwindigkeitsabhängig gedämpft.
+  const turnSpeed = 0.0032 + Math.min(steer, 180) / 45 * 0.010 + Math.min(grip, 200) / 100 * 0.0025;
   return { maxSpeed, accel, friction, turnSpeed, reverseFactor: 0.4 };
 }
 
-// Compute the km/h at which each gear is fully wound out (rough approximation
-// using gear ratios as inverse multipliers of topSpeed in last gear).
+/** Berechnet die km/h-Schaltschwellen für jeden Gang.
+ *  Garantien:
+ *   1. streng monoton steigend (min. +15 km/h Spreizung)
+ *   2. letzter Eintrag = topSpeed
+ *   3. keine NaN/Infinity
+ */
 export function shiftSpeeds(t: Tuning): number[] {
   const top = safe(t.topSpeed, 240);
   const raw = t.gearRatios.slice(0, t.gears).filter((r) => Number.isFinite(r) && r > 0);
-  if (raw.length === 0) return [];
-  // Force monotonically increasing shift speeds by sorting ratios descending
-  // (G1 = highest ratio = lowest top speed). User-edited ratios may be out of
-  // order, which previously caused the auto-shift loop to stall mid-rev range.
+  if (raw.length === 0) return [Math.round(top)];
+
+  // Sortiere Ratios absteigend (G1 = höchste = niedrigste Endgeschw.)
   const sorted = [...raw].sort((a, b) => b - a);
   const minRatio = sorted[sorted.length - 1];
-  return sorted.map((r) => Math.round(top * (minRatio / Math.max(0.001, r))));
+  const base = sorted.map((r) => top * (minRatio / Math.max(0.001, r)));
+
+  // Mindest-Spreizung erzwingen (verhindert doppelte / eng liegende Schwellen).
+  const MIN_STEP = 15;
+  for (let i = 1; i < base.length; i++) {
+    if (base[i] < base[i - 1] + MIN_STEP) base[i] = base[i - 1] + MIN_STEP;
+  }
+  // Letzter Gang MUSS Top-Speed erreichen — dehnt/skaliert unteres Ende bei Bedarf.
+  if (base.length >= 1) base[base.length - 1] = Math.max(base[base.length - 1], top);
+
+  return base.map((v) => Math.round(v));
 }
 
-// Distribute gear ratios evenly between max (G1) and min (last).
 export function distributeRatios(gears: number, maxRatio = 3.5, minRatio = 0.7): number[] {
   if (gears <= 1) return [minRatio];
   const out: number[] = [];
