@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import type { Mission } from "@/lib/missions";
+import { secondsUntilNextRotation } from "@/lib/missions";
 
 export function MissionsPanel({
   mission,
@@ -6,9 +8,19 @@ export function MissionsPanel({
   statusText,
 }: {
   mission: Mission;
-  progress: number; // 0..1
+  progress: number;
   statusText: string;
 }) {
+  const [countdown, setCountdown] = useState(secondsUntilNextRotation());
+
+  useEffect(() => {
+    const id = setInterval(() => setCountdown(secondsUntilNextRotation()), 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  const m = Math.floor(countdown / 60);
+  const s = countdown % 60;
+
   return (
     <div className="pointer-events-none absolute left-6 top-24 max-w-[300px] rounded-xl border bg-card/80 px-4 py-3 backdrop-blur-md">
       <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">Mission · {mission.reward} 🪙</p>
@@ -19,6 +31,9 @@ export function MissionsPanel({
              style={{ width: `${Math.max(0, Math.min(1, progress)) * 100}%` }} />
       </div>
       <p className="mt-1 font-mono text-[10px] text-muted-foreground">{statusText}</p>
+      <p className="mt-1 font-mono text-[9px] text-muted-foreground/70">
+        Neue Missionen in {m}:{String(s).padStart(2, "0")}
+      </p>
     </div>
   );
 }

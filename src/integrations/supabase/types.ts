@@ -56,12 +56,46 @@ export type Database = {
         }
         Relationships: []
       }
+      mods: {
+        Row: {
+          author_nick: string
+          description: string
+          downloads: number
+          id: string
+          kind: string
+          name: string
+          payload: Json
+          uploaded_at: string
+        }
+        Insert: {
+          author_nick: string
+          description?: string
+          downloads?: number
+          id?: string
+          kind: string
+          name: string
+          payload: Json
+          uploaded_at?: string
+        }
+        Update: {
+          author_nick?: string
+          description?: string
+          downloads?: number
+          id?: string
+          kind?: string
+          name?: string
+          payload?: Json
+          uploaded_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       increment_market_purchase: { Args: { _id: string }; Returns: undefined }
+      increment_mod_download: { Args: { _id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never

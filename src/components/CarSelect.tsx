@@ -42,6 +42,8 @@ export function CarSelect({
   onEdit,
   onOpenMarket,
   onOpenMissions,
+  onOpenMods,
+  onOpenTutorial,
   mode = "solo",
   onModeChange,
   headline,
@@ -52,6 +54,8 @@ export function CarSelect({
   onEdit: (car: CustomCar) => void;
   onOpenMarket?: () => void;
   onOpenMissions?: () => void;
+  onOpenMods?: () => void;
+  onOpenTutorial?: () => void;
   mode?: Mode;
   onModeChange?: (m: Mode) => void;
   headline?: string;
@@ -121,6 +125,14 @@ export function CarSelect({
             {onOpenMissions && (
               <button onClick={onOpenMissions}
                 className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Missionen</button>
+            )}
+            {onOpenMods && (
+              <button onClick={onOpenMods}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Mods</button>
+            )}
+            {onOpenTutorial && (
+              <button onClick={onOpenTutorial}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">📘 Tutorial</button>
             )}
             {onOpenMarket && (
               <button onClick={onOpenMarket}

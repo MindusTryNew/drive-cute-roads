@@ -1,94 +1,126 @@
-# Plan: Coin-Wirtschaft, Missionen, Markt & Performance
+## Ziel
+Modding-System runderneuern (Auto-Mods + Karten-Mods mit exakter Erkennung/Anwendung), Mod-Browser, Getriebe-Bug endgültig fixen, High-Speed-Handling deutlich sanfter/realistischer, Modding-Tutorial, bessere Minimap, alle 2 Min neue Missionen.
 
-## 1. Performance / Lag-Fix (Smart + manuelle Settings)
+## 1. Modding — Format v2 (exakt & erweiterbar)
 
-**Auto-Detection (`src/lib/perf.ts`):** Misst FPS in den ersten 3 Sek, wählt Quality-Preset (Low/Med/High). Speichert in localStorage.
-- **Low:** keine Schatten, 30 Gebäude, Fog-Distanz 200, kein Streetlight-PointLight (nur Emissive), Pixelratio 1.
-- **Med:** Schatten nur Auto, 70 Gebäude, Fog 300, 10 PointLights, Pixelratio 1.5.
-- **High:** alle Schatten, 120 Gebäude, Fog 400, alle Lights, Pixelratio 2.
-**Quality-UI:** Settings-Button im Sim-HUD → Modal mit Auto/Low/Med/High + FPS-Anzeige.
-**Optimierungen in `world.ts`/`Simulator.tsx`:** Frustum-Culling für ferne Gebäude (Distance > Fog), Hügel-Mesh in 1 BufferGeometry (statt N Meshes), Lights nur in Nacht aktivieren, `renderer.shadowMap` toggle nach Preset, MP-Updates auf 10 Hz drosseln (statt 30).
+Neues Modul `src/lib/mods.ts` mit klarem, validiertem JSON-Format via Zod:
 
-## 2. Coin-System (Balanced)
-
-**Storage (`src/lib/coins.ts`):** localStorage `garage:coins` (Start: 500). Funktionen: `getCoins`, `addCoins`, `spendCoins`, `transactionLog`.
-**HUD:** Coin-Counter oben rechts in Garage + Simulator.
-**Garagen-Plätze:** Start 1 Slot frei. Slot 2 = 5.000, Slot 3 = 12.000, Slot 4+ = +8.000 progressiv. Wenn voll → "Slot kaufen"-Button im Garage-Header.
-
-## 3. Auto-Erstellen kostet Coins (leistungsabhängig)
-
-**Formel (`src/lib/car-price.ts`):**
+```json
+{
+  "format": "driftlab.mod",
+  "version": 2,
+  "kind": "car" | "map" | "part-pack" | "tuning-preset",
+  "id": "uuid", "name": "...", "author": "...", "description": "...",
+  "payload": { /* kind-spezifisch */ }
+}
 ```
-base = 200
-power = max(0, (350 - topSpeed_target) wird invertiert) → topSpeedFactor = topSpeed / 10
-accelFactor = max(0, (12 - t100) * 50)
-gripFactor = grip * 3
-weightPenalty = max(0, (2000 - weight)) * 0.05  // leichter = teurer
-extras = spoiler ? 100 : 0
-total = round(base + topSpeedFactor + accelFactor + gripFactor + weightPenalty + extras)
-```
-- 0–100 km/h Standard-Auto (~250 km/h, 5s, grip 70): ~600 Coins
-- Hypercar (400 km/h, 2.5s, grip 95): ~2.000 Coins
-- Absurd (10.000 km/h, 0.1s): ~10.000+ Coins (kein hard cap)
 
-**UI in CarBuilder:** Live-Preis-Anzeige neben „Speichern". Wenn Coins < Preis → Button disabled + Hint. Tageslimit BLEIBT (3/Tag) zusätzlich.
+- **kind=car** → payload = vollständiger `CustomCar` (bestehendes Schema).
+- **kind=map** → payload = `MapExtension`: Liste von Objekten (`building | ramp | hill | roadSegment | checkpoint`) mit `position/rotation/scale/color`.
+- **kind=part-pack** → Liste von Parts (GLB als base64 embedded oder URL).
+- **kind=tuning-preset** → Patches für Tuning-Werte.
 
-## 4. Getriebe-Details (Shift-RPM-Anzeige)
+**Erkennung/Anwendung:**
+- `parseMod(json)` → validiert per Zod, gibt typisierten Mod zurück oder wirft mit klarem Fehlertext (Zeile/Feld).
+- `applyMod(mod)` → Router pro `kind`: Car → in Garage speichern, Map → in `installedMapMods` (localStorage) + Live-Injection in `world.ts` via neuer `mountMapMods(scene)` API, Part-Pack → in IndexedDB (`parts-store.ts`), Preset → in Preset-Liste im Builder.
+- Legacy v1 (bisherige `.car.json`) wird automatisch in v2 konvertiert.
 
-**In `CarBuilder.tsx` Getriebe-Sektion:** Pro Gang zusätzlich zur Ratio die berechnete **Schaltgeschwindigkeit (km/h)** anzeigen:
-```
-shiftSpeed[i] = topSpeed * (ratios[i] / ratios[0])  // grobe Annäherung
-```
-Tabelle: `G1: 0.85 → schaltet bei 65 km/h`. Auto-Verteil-Button („Gänge gleichmäßig").
-**Im Simulator:** HUD zeigt aktuellen Gang + nächste Shift-Speed. Auto-Schaltung nutzt diese Tabelle.
+## 2. Mod-Browser (Cloud, öffentlich)
 
-## 5. Sanfteres Handling
+Neue Tabelle `public.mods` mit RLS (analog `market_cars`):
+- Felder: `id, author_nick, kind, name, description, payload jsonb, downloads int, uploaded_at`
+- `SELECT TO anon` offen, `INSERT TO anon` mit CHECK auf `kind` und Payload-Struktur, kein UPDATE/DELETE.
 
-**`car-spec.ts` `physicsFromTuning`:**
-- Lenkung: Smoothing-Faktor 0.15 (lerp), statt direktem turnSpeed-Set.
-- Grip-Kurve sanfter: `friction = 0.92 + min(grip,150)/150 * 0.07` (war 0.025).
-- Untersteuern bei Hoch-Speed: `effectiveTurn = turnSpeed * (1 - speed/maxSpeed * 0.4)`.
-- Reverse-Faktor 0.4 (war 0.5) für besseres Manövrieren.
+Neue Komponente `src/components/ModBrowser.tsx`:
+- Tabs: **Alle / Autos / Karten / Parts / Presets**
+- Suche + Sortierung (neueste/beliebteste)
+- „Installieren" (→ `applyMod`), „Hochladen"-Dialog (Datei-Upload + Nick + Beschreibung)
+- Lokaler Tab „Meine Mods" zeigt installierte Mods mit Deaktivieren/Löschen
 
-**`Simulator.tsx` Input-Loop:** Lenk-Input über Lerp glätten, Throttle/Brake mit easing (nicht instant 0→1).
+Server-Fns `src/lib/mods.functions.ts`: `listMods(kind?, search?)`, `uploadMod(payload)`, `incrementDownload(id)`.
 
-## 6. Missionen (Speed / Delivery / Time-Driven)
+Zugang: neuer Button „Mods" im Hauptmenü (`CarSelect.tsx`), führt zu `ModBrowser`.
 
-**Tabelle (Cloud, RLS public read, INSERT für eingeloggte — aber wir haben keinen Login):** → Missionen sind **statisch in Code** (`src/lib/missions.ts`), Progress lokal in localStorage.
+## 3. Getriebe-Bug endgültig lösen
 
-**Typen:**
-- **Speed-Challenge:** „Erreiche 200 km/h in unter 6 s" → Belohnung 80 Coins.
-- **Delivery:** Spawn Pickup-Marker (gelbe Säule) + Drop-Marker (grüne) auf der Map. Fahre hin, Timer läuft. → 100–250 Coins.
-- **Time-Driven:** „Fahre 5 Min insgesamt" / „Erreiche 1h Gesamtzeit" → Cumulative Counter. → 50–500 Coins.
+Root Cause: Auto-Shift arbeitet **rein geschwindigkeitsbasiert** — wenn Reibung/Widerstand die Beschleunigung unterhalb der berechneten Shift-Schwelle abschneidet, bleibt das Auto ewig im niedrigen Gang.
 
-**HUD:** Missions-Panel links oben (collapsible) mit aktiver Mission + Progress-Bar. Mission-Auswahl im Garage-Screen („Missionen"-Tab).
+Fix in `Simulator.tsx` + `car-spec.ts`:
+- **Zeit- & Beschleunigungs-basierter Upshift-Fallback:** Wenn im aktuellen Gang länger als `2.5 s` bei ≥95% der Ziel-Shift-Speed **oder** wenn dv/dt < `0.5 km/h/s` → nächster Gang.
+- **Minimum-Shift-Spreizung:** In `shiftSpeeds()` erzwingen, dass jeder Wert mindestens 15 km/h über dem vorherigen liegt; sonst hochskalieren.
+- **Letzter Gang = Top-Speed sichern:** Letzter Eintrag wird auf `topSpeed` gesetzt (auch bei degenerierten Ratios).
+- **Debug-HUD** (nur wenn Quality-Settings „Debug" an): zeigt aktuelle Shift-Schwellen als Liste.
 
-## 7. Öffentlicher Markt (Lovable Cloud)
+## 4. Sanfteres High-Speed-Handling (realistisch)
 
-**Migration:** Tabelle `public.market_cars`:
-```sql
-id uuid pk, seller_nick text, car_json jsonb, price int, listed_at timestamptz,
-times_purchased int default 0
-```
-RLS: `SELECT TO anon` erlaubt (öffentlich browsebar). `INSERT TO anon` erlaubt mit CHECK `length(seller_nick) between 2 and 20 AND price between 100 and 1000000 AND jsonb_typeof(car_json)='object'`. Kein UPDATE/DELETE für anon (Listings bleiben).
+`car-spec.ts` `physicsFromTuning` + Input-Loop in `Simulator.tsx`:
+- **Speed-abhängige Lenk-Dämpfung (stark):** `effectiveTurn = turnSpeed * (1 - min(0.85, (speed/maxSpeed)^1.4 * 0.9))` — bei Vmax nur noch ~15% Lenkeinschlag.
+- **Lenkung Lerp-Faktor verringern:** von 0.15 auf 0.08 (weichere Eingabe).
+- **Downforce-Simulation:** ab 60% maxSpeed steigende Reibung `friction += 0.005 * (speedRatio-0.6)`.
+- **Trägheit auf Lenkinput:** zweistufiges Lerp (Input → target → applied) für „Analog-Gefühl".
+- **Rollstabilisation:** kein plötzliches Ausbrechen — Yaw-Änderung pro Frame auf `0.03 rad` gedeckelt.
+- **Throttle-Easing:** exponentielle Kurve (`throttle^1.5`) statt linear, glattere Beschleunigungs-Rampe.
 
-**Server-Fn `market.functions.ts`:** `listCars(limit, offset)`, `publishCar(carJson, price, nick)` (deduct 10% Marktgebühr von Coins lokal vor publish), `buyCar(id)` (deduct full price lokal, addCar zur Garage).
+## 5. Modding-Tutorial (umfangreich)
 
-**UI:** Neuer „Markt"-Tab in `CarSelect.tsx`. Grid mit Auto-Preview-Thumb (rendere Mini-Canvas), Preis, Verkäufer-Nick. Buttons: „Kaufen" / Eigenes Auto → „Verkaufen" Dialog (Preis-Input, zeigt Gebühr).
+Neue Route `src/routes/tutorial.tsx` mit Kapiteln (Tab-Nav):
+1. **Was ist ein Mod?** — Übersicht der 4 Kinds.
+2. **Dein erstes Auto-Mod** — Schritt-für-Schritt: Builder öffnen, Export, JSON-Struktur erklärt, Upload.
+3. **JSON-Format v2** — vollständige Schema-Referenz mit Beispielen für jedes Feld.
+4. **Karten-Erweiterungen** — Koordinatensystem der Welt (WORLD_SIZE, Straßen, Hügel), Objekt-Typen, Live-Beispiel („Rampen-Rennstrecke").
+5. **Parts (GLB)** — wie externe 3D-Modelle einbinden, Größen-Skalierung, Best-Practices.
+6. **Veröffentlichen** — Upload-Flow im Mod-Browser, Nick, Beschreibung, Community-Regeln.
+7. **Beispiel-Downloads** — 3 Musterdateien direkt herunterladbar (mini-hypercar.json, ramp-park.json, low-cost-preset.json).
 
-**Markt-Gebühr:** 10% des Listing-Preises sofort beim Inserieren abgezogen.
+Erreichbar über „Modding-Tutorial"-Button im Mod-Browser und im Hauptmenü.
+
+## 6. Realistischere Minimap
+
+`Simulator.tsx` `drawMinimap`:
+- **Rotierbar mit Fahrtrichtung** (Toggle im HUD: North-Up / Heading-Up).
+- **Zoom-Level** (3 Stufen, +/- Buttons).
+- **North-Indicator** (kleines „N" mit Pfeil oben).
+- **Icons statt Punkte:** Auto = Dreieck mit Farbe des Autos, Missions-Marker = kleine gelbe/grüne Pins mit Distanz-Label, Multiplayer-Spieler = farbige Dreiecke mit Nick.
+- **Straßen-Rendering verbessert:** dickere Hauptstraßen, dünnere Nebenstraßen, Kreuzungen als kleine Quadrate.
+- **Kompass-Ring** außen mit Grad-Marken.
+- **Höhenlinien** für die Hügel-Zone (leichter Konturen-Fill).
+
+## 7. Rotierende Missionen (alle 2 Min)
+
+`src/lib/missions.ts` erweitern:
+- Neue Funktion `getCurrentRotation()` gibt 3 aktive Missionen basierend auf `Math.floor(Date.now() / 120000)` als Seed zurück (deterministisch, alle Clients sehen dasselbe).
+- Alte Aktive-Mission bleibt bis Abschluss, aber Auswahl-Pool rotiert.
+- `MissionsPanel.tsx` zeigt Countdown „Neue Missionen in 1:23".
+- Bei Rotation Toast: „🎯 3 neue Missionen verfügbar".
+- Mission-Pool auf ~20 Varianten erweitert (Speed/Delivery/Time + neue Sub-Varianten mit unterschiedlichen Zielen).
 
 ## Technische Details
 
-**Neue Files:** `src/lib/perf.ts`, `src/lib/coins.ts`, `src/lib/car-price.ts`, `src/lib/missions.ts`, `src/lib/market.functions.ts`, `src/components/MissionsPanel.tsx`, `src/components/Market.tsx`, `src/components/QualitySettings.tsx`, `src/components/SlotPurchase.tsx`.
+**Neue Files:**
+- `src/lib/mods.ts` (Format v2, Parser, Applier)
+- `src/lib/mods.functions.ts` (Cloud-Server-Fns)
+- `src/lib/map-mods.ts` (Runtime-Injection in Scene)
+- `src/components/ModBrowser.tsx`
+- `src/routes/tutorial.tsx`
+- 3 Beispiel-Mod-Dateien unter `public/mods/`
 
-**Editierte Files:** `CarBuilder.tsx` (Preis-Anzeige, Schaltspeed-Tabelle), `CarSelect.tsx` (Coins-HUD, Slots, Markt-Tab, Missionen-Tab), `Simulator.tsx` (Quality, Mission-Tracking, sanfteres Input, Shift-Speed-HUD, MP-Drosselung), `car-spec.ts` (smooth physics), `garage.ts` (maxSlots, coin-charge auf save), `world.ts` (preset-aware), `routes/index.tsx` (Markt-View).
+**Editierte Files:**
+- `src/lib/car-spec.ts` (Shift-Fix, Handling)
+- `src/lib/missions.ts` (Rotation, Pool-Erweiterung)
+- `src/components/Simulator.tsx` (Shift-Fallback, Handling-Loop, Minimap-Rewrite, Rotation-Toast)
+- `src/components/MissionsPanel.tsx` (Countdown)
+- `src/components/CarSelect.tsx` (Mods-Button, Tutorial-Button)
+- `src/lib/world.ts` (Mount-Point für Map-Mods)
+- `src/lib/garage.ts` (Import-Path für v2)
+- `src/routes/index.tsx` (Views für Mods/Tutorial)
+
+**Migration:** `public.mods` Tabelle mit RLS + GRANTs.
 
 **Keine neuen Dependencies.**
 
 ## Out of Scope
-- Login/Auth für Markt (anon-Nicks reichen wie besprochen)
-- Edit/Delete von Markt-Listings
-- Mission-Leaderboards
-- Achievements/Trophies
-- Soundeffekte
+- Mod-Signaturen/Verifizierung
+- Kommentare/Ratings im Mod-Browser
+- Live-Editor für Karten-Mods (bleibt JSON-basiert, Tutorial erklärt es)
+- Versionierung/Updates von hochgeladenen Mods
+- Skript-Mods (nur Daten, kein Custom-Code aus Sicherheitsgründen)

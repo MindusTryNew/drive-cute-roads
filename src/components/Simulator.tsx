@@ -13,8 +13,10 @@ import {
   getActiveMission,
   completeMission,
   addDriveSec,
+  getRotationSeed,
   type Mission,
 } from "@/lib/missions";
+import { mountMapMods } from "@/lib/map-mods";
 import { QualitySettings } from "@/components/QualitySettings";
 import { MissionsPanel } from "@/components/MissionsPanel";
 
@@ -50,6 +52,9 @@ export function Simulator({
   const [fps, setFps] = useState(60);
   const [showSettings, setShowSettings] = useState(false);
   const [missionState, setMissionState] = useState<{ mission: Mission; progress: number; status: string } | null>(null);
+  const [rotationToast, setRotationToast] = useState<string | null>(null);
+  const [headingUp, setHeadingUp] = useState(true);
+  const [mapZoom, setMapZoom] = useState(1); // 0.5, 1, 2
 
   useEffect(() => {
     const mount = mountRef.current!;
@@ -74,12 +79,13 @@ export function Simulator({
       shadowMapSize: preset.shadowMapSize,
     });
 
-    // Player 1
+    // Map-Mods (installiert) in die Szene mounten
+    mountMapMods(scene, world, preset.shadows);
+
     const p1 = createPlayer(spec, scene, preset.shadows);
     p1.group.position.set(60, 0, 0);
     p1.group.rotation.y = Math.PI / 2;
 
-    // Player 2 (split)
     let p2: PlayerRefs | null = null;
     if (mode.kind === "split") {
       p2 = createPlayer(mode.spec2, scene, preset.shadows);
@@ -87,7 +93,6 @@ export function Simulator({
       p2.group.rotation.y = Math.PI / 2;
     }
 
-    // Online remotes
     const remotes = new Map<string, RemoteCar>();
     let room: RoomHandle | null = null;
     if (mode.kind === "online") {
@@ -100,7 +105,7 @@ export function Simulator({
           scene.add(g);
           const label = makeLabel(p.name);
           g.add(label);
-          r = { group: g, target: { x: p.x, z: p.z, ry: p.ry }, label };
+          r = { group: g, name: p.name, color: p.color, target: { x: p.x, z: p.z, ry: p.ry }, label };
           remotes.set(p.id, r);
           setPlayerCount(1 + remotes.size);
         }
@@ -112,7 +117,6 @@ export function Simulator({
       });
     }
 
-    // Custom GLB parts on player 1
     const loader = new GLTFLoader();
     for (const part of spec.parts) {
       (async () => {
@@ -130,7 +134,6 @@ export function Simulator({
       })();
     }
 
-    // Controls
     const keys: Record<string, boolean> = {};
     const onDown = (e: KeyboardEvent) => { keys[e.key.toLowerCase()] = true; };
     const onUp = (e: KeyboardEvent) => { keys[e.key.toLowerCase()] = false; };
@@ -155,6 +158,11 @@ export function Simulator({
     const bias2 = mode.kind === "split" ? mode.spec2.tuning.handlingBias / 100 : 0;
     const shifts1 = shiftSpeeds(spec.tuning);
 
+    // --- Auto-Shift Bookkeeping (Zeit- & Beschleunigungs-Fallback) ---
+    let currentGear = 1; // 1-basiert
+    let gearHoldTime = 0; // Sekunden im aktuellen Gang
+    let lastKmh = 0;
+
     // ---- Mission setup ----
     let activeMission: Mission | null = getActiveMission();
     let speedAttempt: { running: boolean; t: number } = { running: false, t: 0 };
@@ -165,6 +173,7 @@ export function Simulator({
     let deliveryStage: "pickup" | "drop" = "pickup";
     let deliveryTimeLeft = 0;
     let timeProgress = 0;
+    let lastRotationSeed = getRotationSeed();
 
     const randInRing = (minR: number, maxR: number) => {
       for (let i = 0; i < 30; i++) {
@@ -172,7 +181,6 @@ export function Simulator({
         const r = minR + Math.random() * (maxR - minR);
         const x = Math.cos(ang) * r;
         const z = Math.sin(ang) * r;
-        // Avoid offroad NE quadrant for drivability
         if (x > 60 && z < -60) continue;
         return new THREE.Vector3(x, 0.5, z);
       }
@@ -182,7 +190,6 @@ export function Simulator({
     const spawnDeliveryMarkers = (m: Mission) => {
       const dist = m.deliveryDistance ?? 80;
       pickupPos = randInRing(20, 100);
-      // Find drop ~dist away
       const ang = Math.random() * Math.PI * 2;
       dropPos = pickupPos.clone().add(new THREE.Vector3(Math.cos(ang) * dist, 0, Math.sin(ang) * dist));
       const lim = world.WORLD_SIZE / 2 - 20;
@@ -202,10 +209,9 @@ export function Simulator({
 
     if (activeMission?.type === "delivery") spawnDeliveryMarkers(activeMission);
 
-    // ---- Smoothed inputs (per player) ----
-    type Inputs = { steer: number; throttle: number; brake: number };
-    const in1: Inputs = { steer: 0, throttle: 0, brake: 0 };
-    const in2: Inputs = { steer: 0, throttle: 0, brake: 0 };
+    type Inputs = { steer: number; steerTarget: number; throttle: number; brake: number };
+    const in1: Inputs = { steer: 0, steerTarget: 0, throttle: 0, brake: 0 };
+    const in2: Inputs = { steer: 0, steerTarget: 0, throttle: 0, brake: 0 };
 
     const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
@@ -233,28 +239,41 @@ export function Simulator({
       const right = ctrls.right.some((k) => keys[k]);
       const brake = ctrls.brake.some((k) => keys[k]);
 
-      // Smooth inputs (60 Hz-equivalent lerp factors)
-      const k = Math.min(1, dt * 8);
+      // 2-stufiges Lenk-Lerp (Input → Target → Applied) für Analog-Gefühl
       const targetThrottle = fwd ? 1 : back ? -0.7 : 0;
-      const targetSteer = left ? 1 : right ? -1 : 0;
+      const targetSteerRaw = left ? 1 : right ? -1 : 0;
       const targetBrake = brake ? 1 : 0;
-      input.throttle = lerp(input.throttle, targetThrottle, k);
-      input.steer = lerp(input.steer, targetSteer, Math.min(1, dt * 10));
-      input.brake = lerp(input.brake, targetBrake, Math.min(1, dt * 14));
 
-      // Apply throttle / brake / friction
-      p.velocity += phys.accel * input.throttle;
+      // Throttle-Easing: exponentielle Kurve statt linear
+      input.throttle = lerp(input.throttle, targetThrottle, Math.min(1, dt * 6));
+      const throttleCurve = Math.sign(input.throttle) * Math.pow(Math.abs(input.throttle), 1.4);
+
+      input.brake = lerp(input.brake, targetBrake, Math.min(1, dt * 14));
+      input.steerTarget = lerp(input.steerTarget, targetSteerRaw, Math.min(1, dt * 6));
+      input.steer = lerp(input.steer, input.steerTarget, Math.min(1, dt * 8));
+
+      // Physik
+      p.velocity += phys.accel * throttleCurve;
       p.velocity *= 1 - input.brake * 0.08;
-      p.velocity *= phys.friction;
+
+      // Downforce: bei hoher Geschwindigkeit steigt die Reibung (bremst sanft)
+      const speedRatio = Math.min(1, Math.abs(p.velocity) / Math.max(0.0001, phys.maxSpeed));
+      const downforce = speedRatio > 0.6 ? 0.005 * (speedRatio - 0.6) : 0;
+      p.velocity *= Math.min(0.9995, phys.friction + downforce);
+
       p.velocity = Math.max(-phys.maxSpeed * phys.reverseFactor, Math.min(phys.maxSpeed, p.velocity));
 
-      // Speed-dampened steering (less twitchy at high speed)
-      const speedNorm = Math.min(1, Math.abs(p.velocity) / Math.max(0.0001, phys.maxSpeed));
-      const turnDamp = 1 - speedNorm * 0.5;
+      // High-Speed-Lenk-Dämpfung: bei Vmax nur noch ~15 % Einschlag
+      const turnDamp = 1 - Math.min(0.85, Math.pow(speedRatio, 1.4) * 0.9);
       const turn = phys.turnSpeed * (1 + bias * 0.5) * turnDamp;
       const dirSign = Math.sign(p.velocity || 1);
       const turning = Math.min(1, Math.abs(p.velocity) / 0.08);
-      p.group.rotation.y += input.steer * turn * turning * dirSign;
+
+      // Yaw-Änderung pro Frame deckeln (Rollstabilisation)
+      const rawYaw = input.steer * turn * turning * dirSign;
+      const maxYawPerFrame = 0.03;
+      const yaw = Math.max(-maxYawPerFrame, Math.min(maxYawPerFrame, rawYaw));
+      p.group.rotation.y += yaw;
 
       const nextX = p.group.position.x + Math.sin(p.group.rotation.y) * p.velocity;
       const nextZ = p.group.position.z + Math.cos(p.group.rotation.y) * p.velocity;
@@ -300,7 +319,6 @@ export function Simulator({
       updatePlayer(p1, P1, phys1, bias1, in1, dt);
       if (p2) updatePlayer(p2, P2, phys2, bias2, in2, dt);
 
-      // Interpolate remotes
       for (const r of remotes.values()) {
         r.group.position.x += (r.target.x - r.group.position.x) * 0.2;
         r.group.position.z += (r.target.z - r.group.position.z) * 0.2;
@@ -311,15 +329,43 @@ export function Simulator({
         r.group.rotation.y += dr * 0.2;
       }
 
-      // ---- Mission tracking ----
       const kmh1 = Math.abs(p1.velocity) * 380;
       if (kmh1 > 1) addDriveSec(dt);
+
+      // --- Robuste Auto-Shift-Logik (Speed + Zeit- + dv/dt-Fallback) ---
+      gearHoldTime += dt;
+      // Upshift wenn Speed die Schwelle erreicht
+      if (currentGear < shifts1.length && kmh1 >= shifts1[currentGear - 1]) {
+        currentGear++;
+        gearHoldTime = 0;
+      } else if (currentGear < shifts1.length) {
+        // Fallback: nahe an Schwelle & seit >2.5s wenig Beschleunigung → hochschalten
+        const target = shifts1[currentGear - 1];
+        const dv = (kmh1 - lastKmh) / Math.max(dt, 0.0001);
+        if (kmh1 >= target * 0.90 && gearHoldTime > 2.5 && dv < 3) {
+          currentGear++;
+          gearHoldTime = 0;
+        }
+      }
+      // Downshift wenn Speed deutlich unter vorheriger Schwelle
+      if (currentGear > 1 && kmh1 < (shifts1[currentGear - 2] ?? 0) * 0.75) {
+        currentGear--;
+        gearHoldTime = 0;
+      }
+      lastKmh = kmh1;
+
+      // --- Missions-Rotation-Check ---
+      const seed = getRotationSeed();
+      if (seed !== lastRotationSeed) {
+        lastRotationSeed = seed;
+        setRotationToast("🎯 3 neue Missionen verfügbar!");
+        setTimeout(() => setRotationToast(null), 4000);
+      }
 
       if (activeMission) {
         if (activeMission.type === "speed") {
           const target = activeMission.targetSpeed ?? 100;
           const limit = activeMission.targetTimeSec ?? 10;
-          // Start attempt when forward throttle + nearly stopped
           if (!speedAttempt.running && in1.throttle > 0.5 && kmh1 < 5) {
             speedAttempt = { running: true, t: 0 };
           }
@@ -375,7 +421,6 @@ export function Simulator({
             setMissionState({ mission: activeMission, progress: 1, status: "Lieferung abgeschlossen!" });
             activeMission = null;
           } else if (deliveryTimeLeft <= 0) {
-            // Fail — respawn
             if (pickupMarker) { scene.remove(pickupMarker); pickupMarker = null; }
             if (dropMarker) { scene.remove(dropMarker); dropMarker = null; }
             spawnDeliveryMarkers(activeMission);
@@ -387,17 +432,14 @@ export function Simulator({
               status: `${deliveryStage === "pickup" ? "Zum gelben Paket" : "Zum grünen Drop"} · ${dist.toFixed(0)} m · ${deliveryTimeLeft.toFixed(0)} s`,
             });
           }
-          // pulse markers
           if (pickupMarker) pickupMarker.position.y = 0.5 + Math.sin(elapsed * 4) * 0.3;
           if (dropMarker) dropMarker.position.y = 0.5 + Math.sin(elapsed * 4 + 1) * 0.3;
         }
       } else if (missionState !== null && elapsed - heartbeatLast.t > 4) {
-        // Clear completion banner after a few seconds
         heartbeatLast.t = elapsed;
         setMissionState(null);
       }
 
-      // Broadcast self pose
       if (room) {
         netT += dt;
         if (netT > netInterval) {
@@ -414,26 +456,18 @@ export function Simulator({
         }
       }
 
-      // FPS
       fpsCount++;
       fpsT += dt;
       if (fpsT > 1) { setFps(Math.round(fpsCount / fpsT)); fpsT = 0; fpsCount = 0; }
 
-      // HUD
       hudT += dt;
       if (hudT > 0.08) {
         hudT = 0;
         setSpeed(Math.round(kmh1));
         if (p2) setSpeed2(Math.round(Math.abs(p2.velocity) * 380));
-        // Gear from shift table (shifts1 is monotonic ascending; last entry = top speed)
-        let gIdx = 1;
-        for (let i = 0; i < shifts1.length - 1; i++) {
-          if (kmh1 >= shifts1[i]) gIdx = i + 2;
-          else break;
-        }
-        const next = gIdx - 1 < shifts1.length ? shifts1[gIdx - 1] : null;
+        const next = currentGear <= shifts1.length ? shifts1[currentGear - 1] : null;
         setNextShift(next);
-        setGear(p1.velocity > 0.02 ? String(gIdx) : p1.velocity < -0.02 ? "R" : "N");
+        setGear(p1.velocity > 0.02 ? String(currentGear) : p1.velocity < -0.02 ? "R" : "N");
         setClockText(formatTime(phase));
       }
 
@@ -459,85 +493,173 @@ export function Simulator({
       }
     };
 
-    // Minimap
+    // --- Verbesserte Minimap: Kompass, Zoom, Heading-Up, Icons ---
     const mmCanvas = minimapRef.current;
     const mmCtx = mmCanvas?.getContext("2d") ?? null;
-    const MM_SIZE = 180;
-    const scale = MM_SIZE / world.WORLD_SIZE;
+    const MM_SIZE = 200;
     if (mmCanvas) { mmCanvas.width = MM_SIZE; mmCanvas.height = MM_SIZE; }
 
     const drawMinimap = () => {
       if (!mmCtx) return;
       const ctx = mmCtx;
       const cx = MM_SIZE / 2, cy = MM_SIZE / 2;
+      const scale = (MM_SIZE / world.WORLD_SIZE) * mapZoom;
+
       ctx.clearRect(0, 0, MM_SIZE, MM_SIZE);
       ctx.fillStyle = "#0d1220";
-      ctx.fillRect(0, 0, MM_SIZE, MM_SIZE);
+      ctx.beginPath(); ctx.arc(cx, cy, MM_SIZE / 2 - 2, 0, Math.PI * 2); ctx.fill();
 
-      ctx.fillStyle = "#2d2a1a";
-      ctx.fillRect(cx + 60 * scale, cy - 400 * scale, MM_SIZE, 340 * scale);
+      ctx.save();
+      // Clip innerhalb Kreis
+      ctx.beginPath(); ctx.arc(cx, cy, MM_SIZE / 2 - 4, 0, Math.PI * 2); ctx.clip();
 
-      ctx.strokeStyle = "#3a4458";
-      ctx.lineWidth = 1.5;
-      for (const z of world.roadsZ) {
+      // Heading-up: rotiere Welt um Fahrer
+      const rot = headingUp ? -p1.group.rotation.y : 0;
+      ctx.translate(cx, cy);
+      ctx.rotate(rot);
+      ctx.translate(-p1.group.position.x * scale, -p1.group.position.z * scale);
+
+      // Offroad-Zone (Hügel) mit Konturen-Fill
+      ctx.fillStyle = "#2d3520";
+      ctx.fillRect(60 * scale, -400 * scale, 340 * scale, 340 * scale);
+      // Höhenlinien
+      ctx.strokeStyle = "rgba(120,160,90,0.25)";
+      ctx.lineWidth = 0.5;
+      for (let r = 20; r < 200; r += 30) {
         ctx.beginPath();
-        ctx.moveTo(0, cy + z * scale);
-        ctx.lineTo(MM_SIZE, cy + z * scale);
+        ctx.arc(200 * scale, -200 * scale, r * scale, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // Straßen — dickere Hauptstraßen
+      ctx.strokeStyle = "#3a4458";
+      for (const z of world.roadsZ) {
+        ctx.lineWidth = Math.abs(z) < 100 ? 3 : 1.8;
+        ctx.beginPath();
+        ctx.moveTo(-world.WORLD_SIZE * scale, z * scale);
+        ctx.lineTo(world.WORLD_SIZE * scale, z * scale);
         ctx.stroke();
       }
       for (const x of world.roadsX) {
+        ctx.lineWidth = Math.abs(x) < 100 ? 3 : 1.8;
         ctx.beginPath();
-        ctx.moveTo(cx + x * scale, 0);
-        ctx.lineTo(cx + x * scale, MM_SIZE);
+        ctx.moveTo(x * scale, -world.WORLD_SIZE * scale);
+        ctx.lineTo(x * scale, world.WORLD_SIZE * scale);
         ctx.stroke();
       }
-      ctx.strokeStyle = "#5a6478";
+      // Kreuzungen
+      ctx.fillStyle = "#4a5468";
+      for (const x of world.roadsX) {
+        for (const z of world.roadsZ) {
+          ctx.fillRect(x * scale - 3, z * scale - 3, 6, 6);
+        }
+      }
+
+      // Track-Ring
+      ctx.strokeStyle = "#7a8498";
       ctx.lineWidth = (world.outerR - world.innerR) * scale;
       ctx.beginPath();
-      ctx.arc(cx, cy, ((world.outerR + world.innerR) / 2) * scale, 0, Math.PI * 2);
+      ctx.arc(0, 0, ((world.outerR + world.innerR) / 2) * scale, 0, Math.PI * 2);
       ctx.stroke();
 
+      // Gebäude
       ctx.fillStyle = "#6b7a99";
       for (const b of world.buildings) {
-        ctx.fillRect(cx + b.x * scale - (b.w * scale) / 2, cy + b.z * scale - (b.d * scale) / 2, Math.max(1, b.w * scale), Math.max(1, b.d * scale));
+        ctx.fillRect(b.x * scale - (b.w * scale) / 2, b.z * scale - (b.d * scale) / 2, Math.max(1, b.w * scale), Math.max(1, b.d * scale));
       }
 
-      // Mission markers
-      if (pickupMarker) {
-        ctx.fillStyle = "#f6d96a";
+      // Missions-Marker mit Pin + Distanz
+      const drawPin = (x: number, z: number, color: string, label?: string) => {
+        ctx.save();
+        // gegenrotieren damit Pin aufrecht bleibt
+        ctx.translate(x * scale, z * scale);
+        ctx.rotate(-rot);
+        ctx.fillStyle = color;
         ctx.beginPath();
-        ctx.arc(cx + pickupPos.x * scale, cy + pickupPos.z * scale, 4, 0, Math.PI * 2);
+        ctx.arc(0, -4, 5, 0, Math.PI * 2);
         ctx.fill();
-      }
-      if (dropMarker) {
-        ctx.fillStyle = "#4ade80";
         ctx.beginPath();
-        ctx.arc(cx + dropPos.x * scale, cy + dropPos.z * scale, 4, 0, Math.PI * 2);
+        ctx.moveTo(-3, -2); ctx.lineTo(3, -2); ctx.lineTo(0, 4); ctx.closePath();
         ctx.fill();
-      }
+        if (label) {
+          ctx.fillStyle = "#fff";
+          ctx.font = "bold 9px sans-serif";
+          ctx.textAlign = "center";
+          ctx.fillText(label, 0, -12);
+        }
+        ctx.restore();
+      };
 
-      ctx.fillStyle = "#fff";
+      const distTo = (v: THREE.Vector3) => {
+        const dx = v.x - p1.group.position.x, dz = v.z - p1.group.position.z;
+        return Math.round(Math.sqrt(dx * dx + dz * dz));
+      };
+
+      if (pickupMarker) drawPin(pickupPos.x, pickupPos.z, "#f6d96a", `${distTo(pickupPos)}m`);
+      if (dropMarker) drawPin(dropPos.x, dropPos.z, "#4ade80", `${distTo(dropPos)}m`);
+
+      // Remote Spieler-Dreiecke mit Farbe
       for (const r of remotes.values()) {
-        ctx.fillRect(cx + r.group.position.x * scale - 2, cy + r.group.position.z * scale - 2, 4, 4);
+        ctx.save();
+        ctx.translate(r.group.position.x * scale, r.group.position.z * scale);
+        ctx.rotate(-r.group.rotation.y);
+        ctx.fillStyle = r.color;
+        ctx.beginPath();
+        ctx.moveTo(0, -5); ctx.lineTo(3.5, 4); ctx.lineTo(-3.5, 4); ctx.closePath();
+        ctx.fill();
+        ctx.restore();
       }
       if (p2) {
-        ctx.fillStyle = "#5b8def";
-        ctx.fillRect(cx + p2.group.position.x * scale - 3, cy + p2.group.position.z * scale - 3, 6, 6);
+        ctx.save();
+        ctx.translate(p2.group.position.x * scale, p2.group.position.z * scale);
+        ctx.rotate(-p2.group.rotation.y);
+        ctx.fillStyle = mode.kind === "split" ? mode.spec2.appearance.primaryColor : "#5b8def";
+        ctx.beginPath();
+        ctx.moveTo(0, -6); ctx.lineTo(4, 5); ctx.lineTo(-4, 5); ctx.closePath();
+        ctx.fill();
+        ctx.restore();
       }
-      const px = cx + p1.group.position.x * scale;
-      const py = cy + p1.group.position.z * scale;
+
+      // Eigenes Dreieck (im Zentrum wenn heading-up, sonst world-space)
       ctx.save();
-      ctx.translate(px, py);
+      ctx.translate(p1.group.position.x * scale, p1.group.position.z * scale);
       ctx.rotate(-p1.group.rotation.y);
       ctx.fillStyle = spec.appearance.primaryColor;
+      ctx.strokeStyle = "#fff";
+      ctx.lineWidth = 1.2;
       ctx.beginPath();
-      ctx.moveTo(0, -6); ctx.lineTo(4, 5); ctx.lineTo(-4, 5); ctx.closePath();
-      ctx.fill();
+      ctx.moveTo(0, -7); ctx.lineTo(5, 6); ctx.lineTo(-5, 6); ctx.closePath();
+      ctx.fill(); ctx.stroke();
       ctx.restore();
 
+      ctx.restore(); // Ende Clip
+
+      // Kompass-Ring mit Grad-Marken
       ctx.strokeStyle = "rgba(255,255,255,0.15)";
-      ctx.lineWidth = 1;
-      ctx.strokeRect(0.5, 0.5, MM_SIZE - 1, MM_SIZE - 1);
+      ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(cx, cy, MM_SIZE / 2 - 2, 0, Math.PI * 2); ctx.stroke();
+      ctx.save();
+      ctx.translate(cx, cy);
+      for (let i = 0; i < 12; i++) {
+        ctx.rotate(Math.PI / 6);
+        ctx.strokeStyle = i === 0 ? "#f6d96a" : "rgba(255,255,255,0.3)";
+        ctx.beginPath();
+        ctx.moveTo(0, -(MM_SIZE / 2 - 2));
+        ctx.lineTo(0, -(MM_SIZE / 2 - 6));
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // North-Indicator
+      const northRot = headingUp ? -p1.group.rotation.y : 0;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(northRot);
+      ctx.fillStyle = "#f6d96a";
+      ctx.font = "bold 12px sans-serif";
+      ctx.textAlign = "center";
+      ctx.fillText("N", 0, -(MM_SIZE / 2 - 14));
+      ctx.restore();
     };
 
     animate();
@@ -552,7 +674,7 @@ export function Simulator({
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [spec, mode]);
+  }, [spec, mode, headingUp, mapZoom]);
 
   const isSplit = mode.kind === "split";
 
@@ -593,8 +715,19 @@ export function Simulator({
               </div>
             )}
             <div className="rounded-2xl border bg-card/80 p-2 backdrop-blur-md" style={{ boxShadow: "var(--hud-glow)" }}>
-              <canvas ref={minimapRef} className="block rounded-xl" style={{ width: 180, height: 180 }} />
-              <p className="mt-1 text-center font-mono text-[9px] uppercase tracking-[0.3em] text-muted-foreground">Map</p>
+              <canvas ref={minimapRef} className="block rounded-full" style={{ width: 200, height: 200 }} />
+              <div className="mt-1 flex items-center justify-between gap-1 px-1">
+                <button onClick={() => setHeadingUp((v) => !v)}
+                  className="pointer-events-auto rounded border px-1.5 py-0.5 font-mono text-[9px] hover:border-primary">
+                  {headingUp ? "HDG↑" : "N↑"}
+                </button>
+                <div className="flex gap-1">
+                  <button onClick={() => setMapZoom((z) => Math.max(0.5, z / 2))}
+                    className="pointer-events-auto rounded border px-1.5 py-0.5 font-mono text-[9px] hover:border-primary">−</button>
+                  <button onClick={() => setMapZoom((z) => Math.min(4, z * 2))}
+                    className="pointer-events-auto rounded border px-1.5 py-0.5 font-mono text-[9px] hover:border-primary">+</button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -603,7 +736,12 @@ export function Simulator({
           <MissionsPanel mission={missionState.mission} progress={missionState.progress} statusText={missionState.status} />
         )}
 
-        {/* Player 1 HUD (bottom-left) */}
+        {rotationToast && (
+          <div className="absolute left-1/2 top-6 -translate-x-1/2 rounded-full border border-primary/60 bg-primary/20 px-5 py-2 font-mono text-sm backdrop-blur-md">
+            {rotationToast}
+          </div>
+        )}
+
         <div className="absolute bottom-6 left-6 flex items-end gap-4">
           <div className="rounded-2xl border bg-card/80 px-6 py-4 backdrop-blur-md" style={{ boxShadow: "var(--hud-glow)" }}>
             <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-muted-foreground">P1 km/h</p>
@@ -672,6 +810,8 @@ function createPlayer(spec: CarSpec, scene: THREE.Scene, shadows: boolean): Play
 
 type RemoteCar = {
   group: THREE.Group;
+  name: string;
+  color: string;
   target: { x: number; z: number; ry: number };
   label: THREE.Sprite;
 };
