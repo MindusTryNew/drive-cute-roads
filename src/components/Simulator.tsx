@@ -511,6 +511,16 @@ export function Simulator({
         setClockText(formatTime(phase));
       }
 
+      // Nav-Beacon: sanft pulsieren + rotieren
+      if (navBeacon) {
+        navBeacon.rotation.y += dt * 1.2;
+        navBeacon.scale.setScalar(1 + Math.sin(elapsed * 3) * 0.08);
+      }
+      // DevMode: unbegrenzte Beschleunigung — verdoppelt Vmax-Cap
+      if (devOn) {
+        p1.velocity = Math.max(-2, Math.min(2, p1.velocity * 1.001));
+      }
+
       drawMinimap();
 
       renderer.clear();
