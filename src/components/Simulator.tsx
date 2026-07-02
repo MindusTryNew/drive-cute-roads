@@ -720,6 +720,8 @@ export function Simulator({
       window.removeEventListener("keyup", onUp);
       window.removeEventListener("resize", onResize);
       room?.destroy();
+      unDev();
+      unNav();
       renderer.dispose();
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
     };
