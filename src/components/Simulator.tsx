@@ -497,9 +497,9 @@ export function Simulator({
         hudT = 0;
         setSpeed(Math.round(kmh1));
         if (p2) setSpeed2(Math.round(Math.abs(p2.velocity) * 380));
-        const next = currentGear <= shifts1.length ? shifts1[currentGear - 1] : null;
+        const next = visualGear <= shifts1.length ? shifts1[visualGear - 1] : null;
         setNextShift(next);
-        setGear(p1.velocity > 0.02 ? String(currentGear) : p1.velocity < -0.02 ? "R" : "N");
+        setGear(p1.velocity > 0.02 ? String(visualGear) : p1.velocity < -0.02 ? "R" : "N");
         setClockText(formatTime(phase));
       }
 
