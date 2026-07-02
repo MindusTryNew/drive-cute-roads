@@ -239,6 +239,7 @@ export function Simulator({
       scene.add(dropMarker);
       deliveryStage = "pickup";
       deliveryTimeLeft = m.deliveryLimitSec ?? 60;
+      setDest({ x: pickupPos.x, z: pickupPos.z });
     };
 
     if (activeMission?.type === "delivery") spawnDeliveryMarkers(activeMission);
