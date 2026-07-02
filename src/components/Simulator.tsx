@@ -164,12 +164,11 @@ export function Simulator({
     const bias2 = mode.kind === "split" ? mode.spec2.tuning.handlingBias / 100 : 0;
     const shifts1 = shiftSpeeds(spec.tuning);
 
-    // --- Auto-Shift Bookkeeping (Zeit- & Beschleunigungs-Fallback) ---
-    let currentGear = 1; // 1-basiert
-    let gearHoldTime = 0; // Sekunden im aktuellen Gang
-    let lastKmh = 0;
+    // --- Rein visuelle Gang-Anzeige (keine Physik-Kopplung mehr) ---
+    let visualGear = 1;
 
     // ---- Mission setup ----
+    let activeMissionId: string | null = getActiveMissionId();
     let activeMission: Mission | null = getActiveMission();
     let speedAttempt: { running: boolean; t: number } = { running: false, t: 0 };
     let pickupMarker: THREE.Mesh | null = null;
@@ -180,6 +179,35 @@ export function Simulator({
     let deliveryTimeLeft = 0;
     let timeProgress = 0;
     let lastRotationSeed = getRotationSeed();
+    let devOn = isDevMode();
+    const unDev = subscribeDevMode((v) => { devOn = v; });
+
+    // Navigation-Beacon
+    let navBeacon: THREE.Group | null = null;
+    let navDest: { x: number; z: number } | null = getDest();
+    const setBeacon = (d: { x: number; z: number } | null) => {
+      navDest = d;
+      if (navBeacon) { scene.remove(navBeacon); navBeacon = null; }
+      if (d) {
+        navBeacon = new THREE.Group();
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(3, 0.4, 8, 32),
+          new THREE.MeshBasicMaterial({ color: 0x5b8def }),
+        );
+        ring.rotation.x = Math.PI / 2;
+        navBeacon.add(ring);
+        const beam = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.8, 0.8, 40, 12, 1, true),
+          new THREE.MeshBasicMaterial({ color: 0x5b8def, transparent: true, opacity: 0.3, side: THREE.DoubleSide }),
+        );
+        beam.position.y = 20;
+        navBeacon.add(beam);
+        navBeacon.position.set(d.x, 0, d.z);
+        scene.add(navBeacon);
+      }
+    };
+    setBeacon(navDest);
+    const unNav = subscribeDest(setBeacon);
 
     const randInRing = (minR: number, maxR: number) => {
       for (let i = 0; i < 30; i++) {
