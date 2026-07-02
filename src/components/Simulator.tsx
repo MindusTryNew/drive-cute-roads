@@ -366,27 +366,13 @@ export function Simulator({
       const kmh1 = Math.abs(p1.velocity) * 380;
       if (kmh1 > 1) addDriveSec(dt);
 
-      // --- Robuste Auto-Shift-Logik (Speed + Zeit- + dv/dt-Fallback) ---
-      gearHoldTime += dt;
-      // Upshift wenn Speed die Schwelle erreicht
-      if (currentGear < shifts1.length && kmh1 >= shifts1[currentGear - 1]) {
-        currentGear++;
-        gearHoldTime = 0;
-      } else if (currentGear < shifts1.length) {
-        // Fallback: nahe an Schwelle & seit >2.5s wenig Beschleunigung → hochschalten
-        const target = shifts1[currentGear - 1];
-        const dv = (kmh1 - lastKmh) / Math.max(dt, 0.0001);
-        if (kmh1 >= target * 0.90 && gearHoldTime > 2.5 && dv < 3) {
-          currentGear++;
-          gearHoldTime = 0;
-        }
+      // --- Rein visuelle Gang-Anzeige (keine Physik-Kappung mehr) ---
+      // Nächster Gang = 1 + Anzahl bereits überschrittener Schwellen (ohne die letzte).
+      let g = 1;
+      for (let i = 0; i < shifts1.length - 1; i++) {
+        if (kmh1 >= shifts1[i]) g = i + 2;
       }
-      // Downshift wenn Speed deutlich unter vorheriger Schwelle
-      if (currentGear > 1 && kmh1 < (shifts1[currentGear - 2] ?? 0) * 0.75) {
-        currentGear--;
-        gearHoldTime = 0;
-      }
-      lastKmh = kmh1;
+      visualGear = g;
 
       // --- Missions-Rotation-Check ---
       const seed = getRotationSeed();
@@ -394,6 +380,18 @@ export function Simulator({
         lastRotationSeed = seed;
         setRotationToast("🎯 3 neue Missionen verfügbar!");
         setTimeout(() => setRotationToast(null), 4000);
+      }
+
+      // Aktive Mission jeden Frame neu einlesen — reagiert auf Wechsel aus dem Missionen-Menü.
+      const curId = getActiveMissionId();
+      if (curId !== activeMissionId) {
+        activeMissionId = curId;
+        activeMission = curId ? (MISSIONS.find((m) => m.id === curId) ?? null) : null;
+        speedAttempt = { running: false, t: 0 };
+        timeProgress = 0;
+        if (pickupMarker) { scene.remove(pickupMarker); pickupMarker = null; }
+        if (dropMarker) { scene.remove(dropMarker); dropMarker = null; }
+        if (activeMission?.type === "delivery") spawnDeliveryMarkers(activeMission);
       }
 
       if (activeMission) {
