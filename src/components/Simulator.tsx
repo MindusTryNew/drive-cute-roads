@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { toast } from "sonner";
 import type { CarSpec } from "@/lib/car-spec";
 import { physicsFromTuning, shiftSpeeds } from "@/lib/car-spec";
 import { buildCarGroup, getWheels } from "@/lib/car-renderer";
@@ -11,12 +12,17 @@ import { joinRoom, type Pose, type RoomHandle } from "@/lib/multiplayer";
 import { getQualitySetting, resolvePreset } from "@/lib/perf";
 import {
   getActiveMission,
+  getActiveMissionId,
+  setActiveMissionId,
   completeMission,
   addDriveSec,
   getRotationSeed,
+  MISSIONS,
   type Mission,
 } from "@/lib/missions";
 import { mountMapMods } from "@/lib/map-mods";
+import { isDevMode, subscribeDevMode } from "@/lib/devmode";
+import { getDest, setDest, subscribeDest } from "@/lib/navigation";
 import { QualitySettings } from "@/components/QualitySettings";
 import { MissionsPanel } from "@/components/MissionsPanel";
 
@@ -158,12 +164,11 @@ export function Simulator({
     const bias2 = mode.kind === "split" ? mode.spec2.tuning.handlingBias / 100 : 0;
     const shifts1 = shiftSpeeds(spec.tuning);
 
-    // --- Auto-Shift Bookkeeping (Zeit- & Beschleunigungs-Fallback) ---
-    let currentGear = 1; // 1-basiert
-    let gearHoldTime = 0; // Sekunden im aktuellen Gang
-    let lastKmh = 0;
+    // --- Rein visuelle Gang-Anzeige (keine Physik-Kopplung mehr) ---
+    let visualGear = 1;
 
     // ---- Mission setup ----
+    let activeMissionId: string | null = getActiveMissionId();
     let activeMission: Mission | null = getActiveMission();
     let speedAttempt: { running: boolean; t: number } = { running: false, t: 0 };
     let pickupMarker: THREE.Mesh | null = null;
@@ -174,6 +179,35 @@ export function Simulator({
     let deliveryTimeLeft = 0;
     let timeProgress = 0;
     let lastRotationSeed = getRotationSeed();
+    let devOn = isDevMode();
+    const unDev = subscribeDevMode((v) => { devOn = v; });
+
+    // Navigation-Beacon
+    let navBeacon: THREE.Group | null = null;
+    let navDest: { x: number; z: number } | null = getDest();
+    const setBeacon = (d: { x: number; z: number } | null) => {
+      navDest = d;
+      if (navBeacon) { scene.remove(navBeacon); navBeacon = null; }
+      if (d) {
+        navBeacon = new THREE.Group();
+        const ring = new THREE.Mesh(
+          new THREE.TorusGeometry(3, 0.4, 8, 32),
+          new THREE.MeshBasicMaterial({ color: 0x5b8def }),
+        );
+        ring.rotation.x = Math.PI / 2;
+        navBeacon.add(ring);
+        const beam = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.8, 0.8, 40, 12, 1, true),
+          new THREE.MeshBasicMaterial({ color: 0x5b8def, transparent: true, opacity: 0.3, side: THREE.DoubleSide }),
+        );
+        beam.position.y = 20;
+        navBeacon.add(beam);
+        navBeacon.position.set(d.x, 0, d.z);
+        scene.add(navBeacon);
+      }
+    };
+    setBeacon(navDest);
+    const unNav = subscribeDest(setBeacon);
 
     const randInRing = (minR: number, maxR: number) => {
       for (let i = 0; i < 30; i++) {
@@ -205,6 +239,7 @@ export function Simulator({
       scene.add(dropMarker);
       deliveryStage = "pickup";
       deliveryTimeLeft = m.deliveryLimitSec ?? 60;
+      setDest({ x: pickupPos.x, z: pickupPos.z });
     };
 
     if (activeMission?.type === "delivery") spawnDeliveryMarkers(activeMission);
@@ -332,27 +367,13 @@ export function Simulator({
       const kmh1 = Math.abs(p1.velocity) * 380;
       if (kmh1 > 1) addDriveSec(dt);
 
-      // --- Robuste Auto-Shift-Logik (Speed + Zeit- + dv/dt-Fallback) ---
-      gearHoldTime += dt;
-      // Upshift wenn Speed die Schwelle erreicht
-      if (currentGear < shifts1.length && kmh1 >= shifts1[currentGear - 1]) {
-        currentGear++;
-        gearHoldTime = 0;
-      } else if (currentGear < shifts1.length) {
-        // Fallback: nahe an Schwelle & seit >2.5s wenig Beschleunigung → hochschalten
-        const target = shifts1[currentGear - 1];
-        const dv = (kmh1 - lastKmh) / Math.max(dt, 0.0001);
-        if (kmh1 >= target * 0.90 && gearHoldTime > 2.5 && dv < 3) {
-          currentGear++;
-          gearHoldTime = 0;
-        }
+      // --- Rein visuelle Gang-Anzeige (keine Physik-Kappung mehr) ---
+      // Nächster Gang = 1 + Anzahl bereits überschrittener Schwellen (ohne die letzte).
+      let g = 1;
+      for (let i = 0; i < shifts1.length - 1; i++) {
+        if (kmh1 >= shifts1[i]) g = i + 2;
       }
-      // Downshift wenn Speed deutlich unter vorheriger Schwelle
-      if (currentGear > 1 && kmh1 < (shifts1[currentGear - 2] ?? 0) * 0.75) {
-        currentGear--;
-        gearHoldTime = 0;
-      }
-      lastKmh = kmh1;
+      visualGear = g;
 
       // --- Missions-Rotation-Check ---
       const seed = getRotationSeed();
@@ -360,6 +381,18 @@ export function Simulator({
         lastRotationSeed = seed;
         setRotationToast("🎯 3 neue Missionen verfügbar!");
         setTimeout(() => setRotationToast(null), 4000);
+      }
+
+      // Aktive Mission jeden Frame neu einlesen — reagiert auf Wechsel aus dem Missionen-Menü.
+      const curId = getActiveMissionId();
+      if (curId !== activeMissionId) {
+        activeMissionId = curId;
+        activeMission = curId ? (MISSIONS.find((m) => m.id === curId) ?? null) : null;
+        speedAttempt = { running: false, t: 0 };
+        timeProgress = 0;
+        if (pickupMarker) { scene.remove(pickupMarker); pickupMarker = null; }
+        if (dropMarker) { scene.remove(dropMarker); dropMarker = null; }
+        if (activeMission?.type === "delivery") spawnDeliveryMarkers(activeMission);
       }
 
       if (activeMission) {
@@ -372,9 +405,11 @@ export function Simulator({
           if (speedAttempt.running) {
             speedAttempt.t += dt;
             if (kmh1 >= target && speedAttempt.t <= limit) {
+              const reward = activeMission.reward;
               completeMission(activeMission.id);
-              setMissionState({ mission: activeMission, progress: 1, status: `Geschafft in ${speedAttempt.t.toFixed(2)} s!` });
-              activeMission = null;
+              toast.success(`✅ ${activeMission.title} — +${reward} 🪙`);
+              setMissionState({ mission: activeMission, progress: 1, status: `Geschafft in ${speedAttempt.t.toFixed(2)} s! · +${reward} 🪙` });
+              activeMission = null; activeMissionId = null;
             } else if (speedAttempt.t > limit) {
               speedAttempt = { running: false, t: 0 };
             } else {
@@ -395,9 +430,11 @@ export function Simulator({
           const need = activeMission.totalSeconds ?? 300;
           timeProgress += kmh1 > 1 ? dt : 0;
           if (timeProgress >= need) {
+            const reward = activeMission.reward;
             completeMission(activeMission.id);
-            setMissionState({ mission: activeMission, progress: 1, status: "Geschafft!" });
-            activeMission = null;
+            toast.success(`✅ ${activeMission.title} — +${reward} 🪙`);
+            setMissionState({ mission: activeMission, progress: 1, status: `Geschafft! · +${reward} 🪙` });
+            activeMission = null; activeMissionId = null;
           } else {
             setMissionState({
               mission: activeMission,
@@ -415,11 +452,14 @@ export function Simulator({
           if (deliveryStage === "pickup" && dist < 4) {
             deliveryStage = "drop";
             if (pickupMarker) { scene.remove(pickupMarker); pickupMarker = null; }
+            setDest({ x: dropPos.x, z: dropPos.z });
           } else if (deliveryStage === "drop" && dist < 4) {
+            const reward = activeMission.reward;
             completeMission(activeMission.id);
+            toast.success(`✅ ${activeMission.title} — +${reward} 🪙`);
             if (dropMarker) { scene.remove(dropMarker); dropMarker = null; }
-            setMissionState({ mission: activeMission, progress: 1, status: "Lieferung abgeschlossen!" });
-            activeMission = null;
+            setMissionState({ mission: activeMission, progress: 1, status: `Lieferung abgeschlossen! · +${reward} 🪙` });
+            activeMission = null; activeMissionId = null;
           } else if (deliveryTimeLeft <= 0) {
             if (pickupMarker) { scene.remove(pickupMarker); pickupMarker = null; }
             if (dropMarker) { scene.remove(dropMarker); dropMarker = null; }
@@ -465,10 +505,20 @@ export function Simulator({
         hudT = 0;
         setSpeed(Math.round(kmh1));
         if (p2) setSpeed2(Math.round(Math.abs(p2.velocity) * 380));
-        const next = currentGear <= shifts1.length ? shifts1[currentGear - 1] : null;
+        const next = visualGear <= shifts1.length ? shifts1[visualGear - 1] : null;
         setNextShift(next);
-        setGear(p1.velocity > 0.02 ? String(currentGear) : p1.velocity < -0.02 ? "R" : "N");
+        setGear(p1.velocity > 0.02 ? String(visualGear) : p1.velocity < -0.02 ? "R" : "N");
         setClockText(formatTime(phase));
+      }
+
+      // Nav-Beacon: sanft pulsieren + rotieren
+      if (navBeacon) {
+        navBeacon.rotation.y += dt * 1.2;
+        navBeacon.scale.setScalar(1 + Math.sin(elapsed * 3) * 0.08);
+      }
+      // DevMode: unbegrenzte Beschleunigung — verdoppelt Vmax-Cap
+      if (devOn) {
+        p1.velocity = Math.max(-2, Math.min(2, p1.velocity * 1.001));
       }
 
       drawMinimap();
@@ -670,6 +720,8 @@ export function Simulator({
       window.removeEventListener("keyup", onUp);
       window.removeEventListener("resize", onResize);
       room?.destroy();
+      unDev();
+      unNav();
       renderer.dispose();
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
     };

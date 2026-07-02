@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   listCars,
   deleteCar,
@@ -10,6 +11,8 @@ import {
   type CustomCar,
 } from "@/lib/garage";
 import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot } from "@/lib/coins";
+import { isDevMode, setDevMode, subscribeDevMode } from "@/lib/devmode";
+import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 
 export type CarKey = "roadster" | "suv" | "racer";
 export type Mode = "solo" | "split" | "online";
@@ -44,6 +47,7 @@ export function CarSelect({
   onOpenMissions,
   onOpenMods,
   onOpenTutorial,
+  onOpenMapEditor,
   mode = "solo",
   onModeChange,
   headline,
@@ -56,6 +60,7 @@ export function CarSelect({
   onOpenMissions?: () => void;
   onOpenMods?: () => void;
   onOpenTutorial?: () => void;
+  onOpenMapEditor?: () => void;
   mode?: Mode;
   onModeChange?: (m: Mode) => void;
   headline?: string;
@@ -67,12 +72,15 @@ export function CarSelect({
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState(getCoins());
   const [slots, setSlots] = useState(getSlots());
+  const [dev, setDev] = useState(isDevMode());
+  const [showRedeem, setShowRedeem] = useState(false);
 
   useEffect(() => {
     setCustomCars(listCars());
     setRemaining(remainingToday());
     const un = subscribeCoins(setCoins);
-    return () => { un(); };
+    const un2 = subscribeDevMode(setDev);
+    return () => { un(); un2(); };
   }, []);
 
   const refresh = () => {
@@ -138,12 +146,34 @@ export function CarSelect({
               <button onClick={onOpenMarket}
                 className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Markt</button>
             )}
+            {onOpenMapEditor && (
+              <button onClick={onOpenMapEditor}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🗺️ Map-Editor</button>
+            )}
+            <button onClick={() => setShowRedeem(true)}
+              className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🎁 Code</button>
+            {dev ? (
+              <span className="rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-sm font-mono">⚡ DEV</span>
+            ) : (
+              <button
+                onClick={() => {
+                  if (spendCoins(50000)) { setDevMode(true); toast.success("⚡ DevMode aktiviert!"); }
+                  else toast.error("Zu wenig Coins (50 000 nötig).");
+                }}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary disabled:opacity-40"
+                disabled={coins < 50000}
+                title="Entwicklermodus: unbegrenztes Experimentieren"
+              >
+                ⚡ DevMode (🪙 50 000)
+              </button>
+            )}
             <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5">
               <span>🪙</span>
               <span className="font-mono text-sm tabular-nums">{coins}</span>
             </div>
           </div>
         </header>
+        {showRedeem && <RedeemCodeDialog onClose={() => setShowRedeem(false)} />}
 
         <section className="mt-12">
           <h2 className="text-4xl font-bold tracking-tight md:text-5xl">{headline ?? "Wähle dein Fahrzeug."}</h2>

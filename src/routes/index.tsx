@@ -8,6 +8,7 @@ import { Market } from "@/components/Market";
 import { MissionsScreen } from "@/components/MissionsScreen";
 import { ModBrowser } from "@/components/ModBrowser";
 import { TutorialScreen } from "@/components/TutorialScreen";
+import { MapEditor } from "@/components/MapEditor";
 import { presetToSpec, customToSpec, type CarSpec } from "@/lib/car-spec";
 import type { CustomCar } from "@/lib/garage";
 
@@ -28,6 +29,7 @@ type View =
   | { kind: "missions" }
   | { kind: "mods" }
   | { kind: "tutorial" }
+  | { kind: "map-editor" }
   | { kind: "pick-p2"; spec1: CarSpec }
   | { kind: "lobby"; spec: CarSpec }
   | { kind: "sim-solo"; spec: CarSpec }
@@ -80,6 +82,9 @@ function Index() {
   if (view.kind === "tutorial") {
     return <TutorialScreen onBack={() => setView({ kind: "mods" })} />;
   }
+  if (view.kind === "map-editor") {
+    return <MapEditor onBack={() => setView({ kind: "garage" })} />;
+  }
   if (view.kind === "pick-p2") {
     return (
       <CarSelect
@@ -102,6 +107,7 @@ function Index() {
       onOpenMissions={() => setView({ kind: "missions" })}
       onOpenMods={() => setView({ kind: "mods" })}
       onOpenTutorial={() => setView({ kind: "tutorial" })}
+      onOpenMapEditor={() => setView({ kind: "map-editor" })}
       onSelect={(sel) => {
         const spec = specOf(sel);
         if (mode === "solo") setView({ kind: "sim-solo", spec });

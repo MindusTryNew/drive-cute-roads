@@ -1,126 +1,85 @@
-## Ziel
-Modding-System runderneuern (Auto-Mods + Karten-Mods mit exakter Erkennung/Anwendung), Mod-Browser, Getriebe-Bug endgültig fixen, High-Speed-Handling deutlich sanfter/realistischer, Modding-Tutorial, bessere Minimap, alle 2 Min neue Missionen.
+## Bugfixes
 
-## 1. Modding — Format v2 (exakt & erweiterbar)
+**1. Missionen zahlen keine Coins.**
+Root Cause: `completeMission` ruft `addCoins()` synchron, aber `setMissionState({ progress: 1 })` und `activeMission = null` laufen in derselben Frame. In seltenen Fällen wird `completeMission` mehrfach ausgelöst, bevor `activeMission` genullt ist — der zweite Aufruf bricht wegen `done.includes(id)` ab, aber der erste hätte laut Logs die Coins gegeben. Tatsächliches Problem: **`getActiveMission()` wird nur beim Sim-Start einmal ausgewertet** (Closure-Variable `activeMission`). Wenn im Missions-Screen eine Mission gewählt wird während der Sim läuft → nichts. Und: `addCoins` gibt zwar `coins` weiter, aber der HUD im Garage-Screen liest sie nur beim Mount, ohne Subscribe → Nutzer sieht keine Änderung und denkt „keine Coins".
+Fix:
+- `Simulator`: `activeMission` bei jedem Frame aus `getActiveMissionId()` neu lesen (leichte Lookup), damit Mission-Wechsel greift; nach Completion einen Toast „+X 🪙" einblenden, damit die Auszahlung sichtbar ist.
+- `CarSelect` und alle Screens, die Coins anzeigen, per `subscribeCoins` re-rendern.
 
-Neues Modul `src/lib/mods.ts` mit klarem, validiertem JSON-Format via Zod:
+**2. Gangschaltung — nur visuell, nicht technisch.**
+Wunsch: Motor/Beschleunigung soll nicht mehr an Gangwechsel gekoppelt sein (verursacht Hänger). Gang-Anzeige bleibt als reines UI-Element.
+Fix in `Simulator.tsx`:
+- Entferne Downshift-Freeze-Effekt und den 2.5-s-Fallback-Loop. Beschleunigung nutzt nur `physicsFromTuning` (accel + friction + maxSpeed), keine ratio-basierten Kappungen.
+- Für die HUD-Anzeige: `visualGear = 1 + count(shifts.filter(s => kmh >= s))`, `nextShift = shifts[visualGear-1] ?? null`. Kein Effekt auf Physik.
+- `shiftSpeeds` bleibt bestehen für die Anzeige und Builder-Preview.
 
-```json
-{
-  "format": "driftlab.mod",
-  "version": 2,
-  "kind": "car" | "map" | "part-pack" | "tuning-preset",
-  "id": "uuid", "name": "...", "author": "...", "description": "...",
-  "payload": { /* kind-spezifisch */ }
-}
-```
+## Content
 
-- **kind=car** → payload = vollständiger `CustomCar` (bestehendes Schema).
-- **kind=map** → payload = `MapExtension`: Liste von Objekten (`building | ramp | hill | roadSegment | checkpoint`) mit `position/rotation/scale/color`.
-- **kind=part-pack** → Liste von Parts (GLB als base64 embedded oder URL).
-- **kind=tuning-preset** → Patches für Tuning-Werte.
+**3. Map-Editor (internes Tool).**
+Neue Route `/map-editor` erreichbar über Button „🗺️ Map-Editor" im Mod-Browser und in `CarSelect`.
+- 3D-Viewport (three.js) mit Draufsicht + freier Kamera. Grid + Grundfläche identisch zur Welt.
+- Toolbar: **Gebäude · Rampe · Hügel · Straßensegment · Checkpoint**. Klick auf Grundfläche platziert Objekt, Drag zum Verschieben, Rechts-Panel für `position/rotation/scale/color`.
+- Speichern → erzeugt ein v2-Mod `{kind:"map", payload:{objects:[...]}}` und ruft `applyMod()` (lokal installieren) + optional „In Mod-Browser hochladen".
+- Laden bestehender Map-Mods aus `installedMapMods` als Bearbeitungs-Basis.
+- Nutzt bereits vorhandenes `mountMapMods` (world.ts), kein neuer Runtime-Code.
 
-**Erkennung/Anwendung:**
-- `parseMod(json)` → validiert per Zod, gibt typisierten Mod zurück oder wirft mit klarem Fehlertext (Zeile/Feld).
-- `applyMod(mod)` → Router pro `kind`: Car → in Garage speichern, Map → in `installedMapMods` (localStorage) + Live-Injection in `world.ts` via neuer `mountMapMods(scene)` API, Part-Pack → in IndexedDB (`parts-store.ts`), Preset → in Preset-Liste im Builder.
-- Legacy v1 (bisherige `.car.json`) wird automatisch in v2 konvertiert.
+**4. Tuning.**
+Kurze Klärung vor der Umsetzung: siehe Frage unten. Grund-Update:
+- CarBuilder-Tuning-Sektion um Presets („Straße", „Rennstrecke", „Drift", „Offroad") + „Auf Standard zurücksetzen" ergänzen.
+- Live-0-100- und Bremsweg-Simulation im Builder (headless run gegen `physicsFromTuning`), damit Werte spürbar werden.
 
-## 2. Mod-Browser (Cloud, öffentlich)
+**5. Navigationssystem für die Minimap.**
+- „Ziel setzen" per Rechtsklick auf die Minimap → speichert Weltkoordinate.
+- Auf der Minimap: pulsierender Ziel-Pin + gestrichelte Linie vom Auto zum Ziel; Distanzlabel.
+- In der 3D-Welt: schwebender Ziel-Beacon (Beam) + kleine Richtungspfeil-HUD-Anzeige „↖ 240 m".
+- Bei aktiver Delivery-Mission wird der jeweils aktuelle Pickup/Drop automatisch als Navigationsziel gesetzt.
 
-Neue Tabelle `public.mods` mit RLS (analog `market_cars`):
-- Felder: `id, author_nick, kind, name, description, payload jsonb, downloads int, uploaded_at`
-- `SELECT TO anon` offen, `INSERT TO anon` mit CHECK auf `kind` und Payload-Struktur, kein UPDATE/DELETE.
+**6. DevMode.**
+- Neuer localStorage-Flag `garage:devMode` (bool). Freischaltung durch:
+  - Kauf für 50.000 🪙 (Button „🛠️ DevMode freischalten" in `CarSelect`, sichtbar solange nicht aktiv).
+  - Einlösen des Codes `D3VM0DE999XXX` (siehe Punkt 7).
+- Effekte wenn aktiv:
+  - CarBuilder ignoriert Coin-Kosten und Slot-Limit.
+  - Keine Marktgebühr, keine Tageslimits.
+  - Neuer „Dev"-Tab im HUD des Simulators: FPS/Kamera-Cheats, Teleport zum Cursor auf Minimap, unbegrenzte Beschleunigung, Debug-Overlays (Kollisionsboxen, Shift-Schwellen).
+  - Coins können im DevMode-Panel gesetzt werden.
 
-Neue Komponente `src/components/ModBrowser.tsx`:
-- Tabs: **Alle / Autos / Karten / Parts / Presets**
-- Suche + Sortierung (neueste/beliebteste)
-- „Installieren" (→ `applyMod`), „Hochladen"-Dialog (Datei-Upload + Nick + Beschreibung)
-- Lokaler Tab „Meine Mods" zeigt installierte Mods mit Deaktivieren/Löschen
-
-Server-Fns `src/lib/mods.functions.ts`: `listMods(kind?, search?)`, `uploadMod(payload)`, `incrementDownload(id)`.
-
-Zugang: neuer Button „Mods" im Hauptmenü (`CarSelect.tsx`), führt zu `ModBrowser`.
-
-## 3. Getriebe-Bug endgültig lösen
-
-Root Cause: Auto-Shift arbeitet **rein geschwindigkeitsbasiert** — wenn Reibung/Widerstand die Beschleunigung unterhalb der berechneten Shift-Schwelle abschneidet, bleibt das Auto ewig im niedrigen Gang.
-
-Fix in `Simulator.tsx` + `car-spec.ts`:
-- **Zeit- & Beschleunigungs-basierter Upshift-Fallback:** Wenn im aktuellen Gang länger als `2.5 s` bei ≥95% der Ziel-Shift-Speed **oder** wenn dv/dt < `0.5 km/h/s` → nächster Gang.
-- **Minimum-Shift-Spreizung:** In `shiftSpeeds()` erzwingen, dass jeder Wert mindestens 15 km/h über dem vorherigen liegt; sonst hochskalieren.
-- **Letzter Gang = Top-Speed sichern:** Letzter Eintrag wird auf `topSpeed` gesetzt (auch bei degenerierten Ratios).
-- **Debug-HUD** (nur wenn Quality-Settings „Debug" an): zeigt aktuelle Shift-Schwellen als Liste.
-
-## 4. Sanfteres High-Speed-Handling (realistisch)
-
-`car-spec.ts` `physicsFromTuning` + Input-Loop in `Simulator.tsx`:
-- **Speed-abhängige Lenk-Dämpfung (stark):** `effectiveTurn = turnSpeed * (1 - min(0.85, (speed/maxSpeed)^1.4 * 0.9))` — bei Vmax nur noch ~15% Lenkeinschlag.
-- **Lenkung Lerp-Faktor verringern:** von 0.15 auf 0.08 (weichere Eingabe).
-- **Downforce-Simulation:** ab 60% maxSpeed steigende Reibung `friction += 0.005 * (speedRatio-0.6)`.
-- **Trägheit auf Lenkinput:** zweistufiges Lerp (Input → target → applied) für „Analog-Gefühl".
-- **Rollstabilisation:** kein plötzliches Ausbrechen — Yaw-Änderung pro Frame auf `0.03 rad` gedeckelt.
-- **Throttle-Easing:** exponentielle Kurve (`throttle^1.5`) statt linear, glattere Beschleunigungs-Rampe.
-
-## 5. Modding-Tutorial (umfangreich)
-
-Neue Route `src/routes/tutorial.tsx` mit Kapiteln (Tab-Nav):
-1. **Was ist ein Mod?** — Übersicht der 4 Kinds.
-2. **Dein erstes Auto-Mod** — Schritt-für-Schritt: Builder öffnen, Export, JSON-Struktur erklärt, Upload.
-3. **JSON-Format v2** — vollständige Schema-Referenz mit Beispielen für jedes Feld.
-4. **Karten-Erweiterungen** — Koordinatensystem der Welt (WORLD_SIZE, Straßen, Hügel), Objekt-Typen, Live-Beispiel („Rampen-Rennstrecke").
-5. **Parts (GLB)** — wie externe 3D-Modelle einbinden, Größen-Skalierung, Best-Practices.
-6. **Veröffentlichen** — Upload-Flow im Mod-Browser, Nick, Beschreibung, Community-Regeln.
-7. **Beispiel-Downloads** — 3 Musterdateien direkt herunterladbar (mini-hypercar.json, ramp-park.json, low-cost-preset.json).
-
-Erreichbar über „Modding-Tutorial"-Button im Mod-Browser und im Hauptmenü.
-
-## 6. Realistischere Minimap
-
-`Simulator.tsx` `drawMinimap`:
-- **Rotierbar mit Fahrtrichtung** (Toggle im HUD: North-Up / Heading-Up).
-- **Zoom-Level** (3 Stufen, +/- Buttons).
-- **North-Indicator** (kleines „N" mit Pfeil oben).
-- **Icons statt Punkte:** Auto = Dreieck mit Farbe des Autos, Missions-Marker = kleine gelbe/grüne Pins mit Distanz-Label, Multiplayer-Spieler = farbige Dreiecke mit Nick.
-- **Straßen-Rendering verbessert:** dickere Hauptstraßen, dünnere Nebenstraßen, Kreuzungen als kleine Quadrate.
-- **Kompass-Ring** außen mit Grad-Marken.
-- **Höhenlinien** für die Hügel-Zone (leichter Konturen-Fill).
-
-## 7. Rotierende Missionen (alle 2 Min)
-
-`src/lib/missions.ts` erweitern:
-- Neue Funktion `getCurrentRotation()` gibt 3 aktive Missionen basierend auf `Math.floor(Date.now() / 120000)` als Seed zurück (deterministisch, alle Clients sehen dasselbe).
-- Alte Aktive-Mission bleibt bis Abschluss, aber Auswahl-Pool rotiert.
-- `MissionsPanel.tsx` zeigt Countdown „Neue Missionen in 1:23".
-- Bei Rotation Toast: „🎯 3 neue Missionen verfügbar".
-- Mission-Pool auf ~20 Varianten erweitert (Speed/Delivery/Time + neue Sub-Varianten mit unterschiedlichen Zielen).
+**7. Premium-Codes.**
+- Neue Datei `src/lib/premium-codes.ts` mit statischem Katalog:
+  ```
+  D3VM0DE999XXX → unlockDevMode
+  ```
+  (Katalog erweiterbar; jeder Code hat `reward: "devmode" | { coins: number } | { slot: 1 } | ...`.)
+- Speicherung eingelöster Codes in `localStorage["garage:redeemed"]`. Jeder Code **nur einmal** einlösbar pro Browser.
+- UI: neuer Button „🎁 Code einlösen" in `CarSelect` öffnet Dialog mit Input + Toast bei Erfolg/„bereits eingelöst"/„ungültig".
 
 ## Technische Details
 
 **Neue Files:**
-- `src/lib/mods.ts` (Format v2, Parser, Applier)
-- `src/lib/mods.functions.ts` (Cloud-Server-Fns)
-- `src/lib/map-mods.ts` (Runtime-Injection in Scene)
-- `src/components/ModBrowser.tsx`
-- `src/routes/tutorial.tsx`
-- 3 Beispiel-Mod-Dateien unter `public/mods/`
+- `src/routes/map-editor.tsx`
+- `src/components/MapEditor.tsx` (three.js Viewport + Tools)
+- `src/lib/premium-codes.ts`
+- `src/lib/devmode.ts` (Flag + Subscribe)
+- `src/lib/navigation.ts` (Ziel-State + Subscribe)
+- `src/components/RedeemCodeDialog.tsx`
+- `src/components/DevPanel.tsx`
 
 **Editierte Files:**
-- `src/lib/car-spec.ts` (Shift-Fix, Handling)
-- `src/lib/missions.ts` (Rotation, Pool-Erweiterung)
-- `src/components/Simulator.tsx` (Shift-Fallback, Handling-Loop, Minimap-Rewrite, Rotation-Toast)
-- `src/components/MissionsPanel.tsx` (Countdown)
-- `src/components/CarSelect.tsx` (Mods-Button, Tutorial-Button)
-- `src/lib/world.ts` (Mount-Point für Map-Mods)
-- `src/lib/garage.ts` (Import-Path für v2)
-- `src/routes/index.tsx` (Views für Mods/Tutorial)
+- `src/components/Simulator.tsx` (Mission-Refresh, Gang nur visuell, Nav-Beacon, DevPanel-Hook, Minimap-Ziel-Klick)
+- `src/components/MissionsScreen.tsx` (Toast bei Reward — optional, primär im Sim)
+- `src/components/CarSelect.tsx` (Coins-Subscribe, Buttons für DevMode-Kauf, Code einlösen, Map-Editor)
+- `src/components/CarBuilder.tsx` (DevMode-Bypass, Tuning-Presets, Live-Simulation)
+- `src/components/ModBrowser.tsx` (Link zum Map-Editor)
+- `src/lib/car-spec.ts` (`shiftSpeeds` bleibt, keine Physik-Nutzung mehr im Sim)
+- `src/routes/index.tsx` (Route für Map-Editor View)
 
-**Migration:** `public.mods` Tabelle mit RLS + GRANTs.
+**Keine Migration nötig.** Alles lokal (localStorage) — Codes sind clientseitig, entsprechend keine Anti-Cheat-Härtung.
 
-**Keine neuen Dependencies.**
+## Klärungsfrage
+
+Was genau soll unter „Tuning" erweitert werden — nur die genannten Presets + Live-Simulation im Builder, oder soll DevMode zusätzlich einen In-Sim-Tuning-Slider (während der Fahrt Werte ändern) bekommen?
 
 ## Out of Scope
-- Mod-Signaturen/Verifizierung
-- Kommentare/Ratings im Mod-Browser
-- Live-Editor für Karten-Mods (bleibt JSON-basiert, Tutorial erklärt es)
-- Versionierung/Updates von hochgeladenen Mods
-- Skript-Mods (nur Daten, kein Custom-Code aus Sicherheitsgründen)
+- Server-seitige Code-Validierung / Rate-Limit (Codes sind rein lokal).
+- Kollaborativer Map-Editor.
+- Wegfindung mit A* — die Navigation ist eine Luftlinien-Anzeige, keine Routenberechnung.
