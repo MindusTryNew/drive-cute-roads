@@ -146,12 +146,34 @@ export function CarSelect({
               <button onClick={onOpenMarket}
                 className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Markt</button>
             )}
+            {onOpenMapEditor && (
+              <button onClick={onOpenMapEditor}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🗺️ Map-Editor</button>
+            )}
+            <button onClick={() => setShowRedeem(true)}
+              className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🎁 Code</button>
+            {dev ? (
+              <span className="rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-sm font-mono">⚡ DEV</span>
+            ) : (
+              <button
+                onClick={() => {
+                  if (spendCoins(50000)) { setDevMode(true); toast.success("⚡ DevMode aktiviert!"); }
+                  else toast.error("Zu wenig Coins (50 000 nötig).");
+                }}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary disabled:opacity-40"
+                disabled={coins < 50000}
+                title="Entwicklermodus: unbegrenztes Experimentieren"
+              >
+                ⚡ DevMode (🪙 50 000)
+              </button>
+            )}
             <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5">
               <span>🪙</span>
               <span className="font-mono text-sm tabular-nums">{coins}</span>
             </div>
           </div>
         </header>
+        {showRedeem && <RedeemCodeDialog onClose={() => setShowRedeem(false)} />}
 
         <section className="mt-12">
           <h2 className="text-4xl font-bold tracking-tight md:text-5xl">{headline ?? "Wähle dein Fahrzeug."}</h2>
