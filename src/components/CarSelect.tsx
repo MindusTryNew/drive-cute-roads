@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import {
   listCars,
   deleteCar,
@@ -10,6 +11,8 @@ import {
   type CustomCar,
 } from "@/lib/garage";
 import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot } from "@/lib/coins";
+import { isDevMode, setDevMode, subscribeDevMode } from "@/lib/devmode";
+import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 
 export type CarKey = "roadster" | "suv" | "racer";
 export type Mode = "solo" | "split" | "online";
@@ -44,6 +47,7 @@ export function CarSelect({
   onOpenMissions,
   onOpenMods,
   onOpenTutorial,
+  onOpenMapEditor,
   mode = "solo",
   onModeChange,
   headline,
@@ -56,6 +60,7 @@ export function CarSelect({
   onOpenMissions?: () => void;
   onOpenMods?: () => void;
   onOpenTutorial?: () => void;
+  onOpenMapEditor?: () => void;
   mode?: Mode;
   onModeChange?: (m: Mode) => void;
   headline?: string;
@@ -67,12 +72,15 @@ export function CarSelect({
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState(getCoins());
   const [slots, setSlots] = useState(getSlots());
+  const [dev, setDev] = useState(isDevMode());
+  const [showRedeem, setShowRedeem] = useState(false);
 
   useEffect(() => {
     setCustomCars(listCars());
     setRemaining(remainingToday());
     const un = subscribeCoins(setCoins);
-    return () => { un(); };
+    const un2 = subscribeDevMode(setDev);
+    return () => { un(); un2(); };
   }, []);
 
   const refresh = () => {
