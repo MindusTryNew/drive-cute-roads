@@ -404,9 +404,11 @@ export function Simulator({
           if (speedAttempt.running) {
             speedAttempt.t += dt;
             if (kmh1 >= target && speedAttempt.t <= limit) {
+              const reward = activeMission.reward;
               completeMission(activeMission.id);
-              setMissionState({ mission: activeMission, progress: 1, status: `Geschafft in ${speedAttempt.t.toFixed(2)} s!` });
-              activeMission = null;
+              toast.success(`✅ ${activeMission.title} — +${reward} 🪙`);
+              setMissionState({ mission: activeMission, progress: 1, status: `Geschafft in ${speedAttempt.t.toFixed(2)} s! · +${reward} 🪙` });
+              activeMission = null; activeMissionId = null;
             } else if (speedAttempt.t > limit) {
               speedAttempt = { running: false, t: 0 };
             } else {
@@ -427,9 +429,11 @@ export function Simulator({
           const need = activeMission.totalSeconds ?? 300;
           timeProgress += kmh1 > 1 ? dt : 0;
           if (timeProgress >= need) {
+            const reward = activeMission.reward;
             completeMission(activeMission.id);
-            setMissionState({ mission: activeMission, progress: 1, status: "Geschafft!" });
-            activeMission = null;
+            toast.success(`✅ ${activeMission.title} — +${reward} 🪙`);
+            setMissionState({ mission: activeMission, progress: 1, status: `Geschafft! · +${reward} 🪙` });
+            activeMission = null; activeMissionId = null;
           } else {
             setMissionState({
               mission: activeMission,
@@ -447,11 +451,14 @@ export function Simulator({
           if (deliveryStage === "pickup" && dist < 4) {
             deliveryStage = "drop";
             if (pickupMarker) { scene.remove(pickupMarker); pickupMarker = null; }
+            setDest({ x: dropPos.x, z: dropPos.z });
           } else if (deliveryStage === "drop" && dist < 4) {
+            const reward = activeMission.reward;
             completeMission(activeMission.id);
+            toast.success(`✅ ${activeMission.title} — +${reward} 🪙`);
             if (dropMarker) { scene.remove(dropMarker); dropMarker = null; }
-            setMissionState({ mission: activeMission, progress: 1, status: "Lieferung abgeschlossen!" });
-            activeMission = null;
+            setMissionState({ mission: activeMission, progress: 1, status: `Lieferung abgeschlossen! · +${reward} 🪙` });
+            activeMission = null; activeMissionId = null;
           } else if (deliveryTimeLeft <= 0) {
             if (pickupMarker) { scene.remove(pickupMarker); pickupMarker = null; }
             if (dropMarker) { scene.remove(dropMarker); dropMarker = null; }
