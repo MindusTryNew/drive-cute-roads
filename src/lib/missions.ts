@@ -1,5 +1,7 @@
 // Missions-Katalog + Rotation. Alle 2 Minuten wechselt der aktive Pool.
 import { addCoins } from "./coins";
+import { addPack } from "./inventory";
+import type { PackType } from "./collectibles";
 
 export type MissionType = "speed" | "delivery" | "time";
 
@@ -9,6 +11,7 @@ export type Mission = {
   title: string;
   desc: string;
   reward: number;
+  packReward?: PackType;
   targetSpeed?: number;
   targetTimeSec?: number;
   totalSeconds?: number;
