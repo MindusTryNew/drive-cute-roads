@@ -86,7 +86,7 @@ const COMMON: Collectible[] = [
   mk("c-nutBig",  "Große Mutter",         "M20 Schwerlast.", "common", "🔩", { kind: "coins", amount: 24 }),
   mk("c-tag2",    "Alter Werkstatt-Bon",  "Reifenwechsel 1998.", "common", "🧾", { kind: "coins", amount: 16 }),
   mk("c-badge",   "Emblem",               "Marke unlesbar.", "common", "🏆", { kind: "coins", amount: 35 }),
-  mk("c-plateS",  "Nummernschild-Stück",  "Nur „...GT".", "common", "🚗", { kind: "coins", amount: 40 }),
+  mk("c-plateS",  "Nummernschild-Stück",  "Nur ...GT lesbar.", "common", "🚗", { kind: "coins", amount: 40 }),
   mk("c-brake",   "Alter Bremsklotz",     "Bis auf 2 mm runter.", "common", "🛑", { kind: "coins", amount: 18 }),
   mk("c-mud",     "Klumpen Rennstaub",    "Karbon-Optik.", "common", "🟫", { kind: "coins", amount: 8 }),
   mk("c-spark",   "Zündfunken-Bild",      "Aus einer Broschüre.", "common", "✨", { kind: "coins", amount: 22 }),
