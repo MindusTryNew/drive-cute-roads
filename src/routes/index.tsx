@@ -9,6 +9,8 @@ import { MissionsScreen } from "@/components/MissionsScreen";
 import { ModBrowser } from "@/components/ModBrowser";
 import { TutorialScreen } from "@/components/TutorialScreen";
 import { MapEditor } from "@/components/MapEditor";
+import { Inventory } from "@/components/Inventory";
+import { CollectionCatalog } from "@/components/CollectionCatalog";
 import { presetToSpec, customToSpec, type CarSpec } from "@/lib/car-spec";
 import type { CustomCar } from "@/lib/garage";
 
