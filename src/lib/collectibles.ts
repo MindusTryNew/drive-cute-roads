@@ -81,7 +81,7 @@ const COMMON: Collectible[] = [
   mk("c-brush",   "Alte Bürste",          "Zum Reifen putzen.", "common", "🪥", { kind: "coins", amount: 9 }),
   mk("c-plug",    "Zündkerze",            "Verbraucht.", "common", "🔥", { kind: "coins", amount: 25 }),
   mk("c-bottle",  "Wasserflasche",        "Halb voll.", "common", "🧴", { kind: "coins", amount: 10 }),
-  mk("c-note",    "Post-it",              "„Reifen prüfen".", "common", "📝", { kind: "coins", amount: 12 }),
+  mk("c-note",    "Post-it",              "Notiz: Reifen prüfen.", "common", "📝", { kind: "coins", amount: 12 }),
   mk("c-token",   "Auto-Chip",            "Aus einem Waschsalon.", "common", "🎟️", { kind: "coins", amount: 30 }),
   mk("c-nutBig",  "Große Mutter",         "M20 Schwerlast.", "common", "🔩", { kind: "coins", amount: 24 }),
   mk("c-tag2",    "Alter Werkstatt-Bon",  "Reifenwechsel 1998.", "common", "🧾", { kind: "coins", amount: 16 }),
