@@ -89,6 +89,12 @@ function Index() {
   if (view.kind === "map-editor") {
     return <MapEditor onBack={() => setView({ kind: "garage" })} />;
   }
+  if (view.kind === "inventory") {
+    return <Inventory onBack={() => setView({ kind: "garage" })} />;
+  }
+  if (view.kind === "catalog") {
+    return <CollectionCatalog onBack={() => setView({ kind: "garage" })} />;
+  }
   if (view.kind === "pick-p2") {
     return (
       <CarSelect
