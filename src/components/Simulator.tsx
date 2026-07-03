@@ -25,6 +25,10 @@ import { isDevMode, subscribeDevMode } from "@/lib/devmode";
 import { getDest, setDest, subscribeDest } from "@/lib/navigation";
 import { QualitySettings } from "@/components/QualitySettings";
 import { MissionsPanel } from "@/components/MissionsPanel";
+import { MobileControls } from "@/components/MobileControls";
+import { getPermBonuses, subscribePermBonuses } from "@/lib/perm-bonuses";
+import { addPack } from "@/lib/inventory";
+import { rollWorldPackType, PACK_META, type PackType } from "@/lib/collectibles";
 
 type Mode =
   | { kind: "solo" }
@@ -63,6 +67,11 @@ export function Simulator({
   const [mapZoom, setMapZoom] = useState(1); // 0.5, 1, 2
 
   useEffect(() => {
+    // Perm-Boni-Cache initialisieren, bevor physicsFromTuning läuft.
+    (globalThis as { __permBonuses?: ReturnType<typeof getPermBonuses> }).__permBonuses = getPermBonuses();
+    const unBonus = subscribePermBonuses((b) => {
+      (globalThis as { __permBonuses?: ReturnType<typeof getPermBonuses> }).__permBonuses = b;
+    });
     const mount = mountRef.current!;
     const { preset } = resolvePreset(getQualitySetting());
     const scene = new THREE.Scene();
@@ -209,6 +218,40 @@ export function Simulator({
     setBeacon(navDest);
     const unNav = subscribeDest(setBeacon);
 
+    // ---- Open-World Sammel-Paket-Drops (1.2 % Chance / Tick) ----
+    type WorldPack = { type: PackType; group: THREE.Group; pos: THREE.Vector3 };
+    const worldPacks: WorldPack[] = [];
+    let packTick = 0;
+    const spawnWorldPack = () => {
+      if (worldPacks.length >= 3) return;
+      const type = rollWorldPackType();
+      const meta = PACK_META[type];
+      const ang = Math.random() * Math.PI * 2;
+      const r = 40 + Math.random() * 80;
+      const x = p1.group.position.x + Math.cos(ang) * r;
+      const z = p1.group.position.z + Math.sin(ang) * r;
+      const lim = world.WORLD_SIZE / 2 - 20;
+      if (Math.abs(x) > lim || Math.abs(z) > lim) return;
+      const g = new THREE.Group();
+      const col = new THREE.Color(meta.color);
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(2, 2, 2),
+        new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.6 }),
+      );
+      box.position.y = 2;
+      g.add(box);
+      const beam = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 30, 8, 1, true),
+        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.35, side: THREE.DoubleSide }),
+      );
+      beam.position.y = 15;
+      g.add(beam);
+      g.position.set(x, 0, z);
+      scene.add(g);
+      worldPacks.push({ type, group: g, pos: g.position });
+    };
+
+
     const randInRing = (minR: number, maxR: number) => {
       for (let i = 0; i < 30; i++) {
         const ang = Math.random() * Math.PI * 2;
@@ -287,16 +330,18 @@ export function Simulator({
       input.steerTarget = lerp(input.steerTarget, targetSteerRaw, Math.min(1, dt * 6));
       input.steer = lerp(input.steer, input.steerTarget, Math.min(1, dt * 8));
 
-      // Physik
-      p.velocity += phys.accel * throttleCurve;
-      p.velocity *= 1 - input.brake * 0.08;
+      // Physik — Drag-Modell (garantiert Terminal = maxSpeed).
+      p.velocity += phys.accel * throttleCurve - phys.drag * p.velocity;
+      p.velocity *= 1 - input.brake * 0.08 * phys.brakeBonus;
 
-      // Downforce: bei hoher Geschwindigkeit steigt die Reibung (bremst sanft)
+      // Downforce: leicht erhöhter Drag über 60 % Vmax (verhindert Nervosität, nicht Speed).
       const speedRatio = Math.min(1, Math.abs(p.velocity) / Math.max(0.0001, phys.maxSpeed));
-      const downforce = speedRatio > 0.6 ? 0.005 * (speedRatio - 0.6) : 0;
-      p.velocity *= Math.min(0.9995, phys.friction + downforce);
+      if (speedRatio > 0.6) {
+        p.velocity -= phys.drag * (speedRatio - 0.6) * p.velocity * 0.25;
+      }
 
-      p.velocity = Math.max(-phys.maxSpeed * phys.reverseFactor, Math.min(phys.maxSpeed, p.velocity));
+      p.velocity = Math.max(-phys.maxSpeed * phys.reverseFactor, Math.min(phys.maxSpeed * 1.02, p.velocity));
+
 
       // High-Speed-Lenk-Dämpfung: bei Vmax nur noch ~15 % Einschlag
       const turnDamp = 1 - Math.min(0.85, Math.pow(speedRatio, 1.4) * 0.9);
@@ -521,7 +566,29 @@ export function Simulator({
         p1.velocity = Math.max(-2, Math.min(2, p1.velocity * 1.001));
       }
 
+      // Open-World Pakete: alle 2 s würfeln + Pickup-Check
+      packTick += dt;
+      if (packTick > 2) {
+        packTick = 0;
+        if (Math.random() < 0.012) spawnWorldPack();
+      }
+      for (let i = worldPacks.length - 1; i >= 0; i--) {
+        const wp = worldPacks[i];
+        wp.group.rotation.y += dt * 1.5;
+        wp.group.children[0].position.y = 2 + Math.sin(elapsed * 3 + i) * 0.4;
+        const dx = wp.pos.x - p1.group.position.x;
+        const dz = wp.pos.z - p1.group.position.z;
+        if (dx * dx + dz * dz < 16) {
+          addPack(wp.type);
+          toast.success(`${PACK_META[wp.type].emoji} ${PACK_META[wp.type].label} gefunden!`);
+          scene.remove(wp.group);
+          worldPacks.splice(i, 1);
+        }
+      }
+
       drawMinimap();
+
+
 
       renderer.clear();
       const w = mount.clientWidth, h = mount.clientHeight;
@@ -722,6 +789,7 @@ export function Simulator({
       room?.destroy();
       unDev();
       unNav();
+      unBonus();
       renderer.dispose();
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
     };
@@ -733,6 +801,7 @@ export function Simulator({
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <div ref={mountRef} className="absolute inset-0" />
+      <MobileControls />
       {isSplit && (
         <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-white/20" />
       )}

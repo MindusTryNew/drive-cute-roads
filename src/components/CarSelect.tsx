@@ -48,6 +48,8 @@ export function CarSelect({
   onOpenMods,
   onOpenTutorial,
   onOpenMapEditor,
+  onOpenInventory,
+  onOpenCatalog,
   mode = "solo",
   onModeChange,
   headline,
@@ -61,6 +63,8 @@ export function CarSelect({
   onOpenMods?: () => void;
   onOpenTutorial?: () => void;
   onOpenMapEditor?: () => void;
+  onOpenInventory?: () => void;
+  onOpenCatalog?: () => void;
   mode?: Mode;
   onModeChange?: (m: Mode) => void;
   headline?: string;
@@ -149,6 +153,14 @@ export function CarSelect({
             {onOpenMapEditor && (
               <button onClick={onOpenMapEditor}
                 className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🗺️ Map-Editor</button>
+            )}
+            {onOpenInventory && (
+              <button onClick={onOpenInventory}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🎒 Inventar</button>
+            )}
+            {onOpenCatalog && (
+              <button onClick={onOpenCatalog}
+                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">📖 Katalog</button>
             )}
             <button onClick={() => setShowRedeem(true)}
               className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🎁 Code</button>
