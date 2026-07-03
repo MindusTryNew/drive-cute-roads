@@ -65,13 +65,15 @@ const safe = (v: number, def: number) => (Number.isFinite(v) && v > 0 ? v : def)
 
 export function physicsFromTuning(t: Tuning) {
   // Permanente Boni aus gefundenen Sammelitems einrechnen (mult. Modifier).
-  // Lazy import verhindert Zirkelabhängigkeit + SSR.
   let bonus = { accel: 0, topSpeed: 0, grip: 0, brake: 0 };
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const mod = require("./perm-bonuses") as typeof import("./perm-bonuses");
-    bonus = mod.getPermBonuses();
-  } catch { /* ok during SSR */ }
+  if (typeof localStorage !== "undefined") {
+    try {
+      // Dynamischer Import per globalem Fenster-Cache — vermeidet SSR-Probleme.
+      const g = globalThis as { __permBonuses?: typeof bonus };
+      if (g.__permBonuses) bonus = g.__permBonuses;
+    } catch { /* ignore */ }
+  }
+
 
   const top = safe(t.topSpeed, 240) * (1 + bonus.topSpeed / 100);
   const t100 = safe(t.time0to100, 5) / (1 + bonus.accel / 100);
