@@ -118,6 +118,8 @@ function Index() {
       onOpenMods={() => setView({ kind: "mods" })}
       onOpenTutorial={() => setView({ kind: "tutorial" })}
       onOpenMapEditor={() => setView({ kind: "map-editor" })}
+      onOpenInventory={() => setView({ kind: "inventory" })}
+      onOpenCatalog={() => setView({ kind: "catalog" })}
       onSelect={(sel) => {
         const spec = specOf(sel);
         if (mode === "solo") setView({ kind: "sim-solo", spec });
