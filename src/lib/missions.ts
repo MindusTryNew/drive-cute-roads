@@ -120,7 +120,10 @@ export function completeMission(id: string) {
   done.push(id);
   localStorage.setItem(DONE_KEY, JSON.stringify(done));
   const m = MISSIONS.find((x) => x.id === id);
-  if (m) addCoins(m.reward);
+  if (m) {
+    addCoins(m.reward);
+    if (m.packReward) addPack(m.packReward);
+  }
   if (getActiveMissionId() === id) setActiveMissionId(null);
 }
 
