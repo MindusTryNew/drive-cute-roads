@@ -25,6 +25,10 @@ import { isDevMode, subscribeDevMode } from "@/lib/devmode";
 import { getDest, setDest, subscribeDest } from "@/lib/navigation";
 import { QualitySettings } from "@/components/QualitySettings";
 import { MissionsPanel } from "@/components/MissionsPanel";
+import { MobileControls } from "@/components/MobileControls";
+import { getPermBonuses, subscribePermBonuses } from "@/lib/perm-bonuses";
+import { addPack } from "@/lib/inventory";
+import { rollWorldPackType, PACK_META, type PackType } from "@/lib/collectibles";
 
 type Mode =
   | { kind: "solo" }
