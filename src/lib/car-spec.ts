@@ -64,19 +64,38 @@ export function customToSpec(car: CustomCar): CarSpec {
 const safe = (v: number, def: number) => (Number.isFinite(v) && v > 0 ? v : def);
 
 export function physicsFromTuning(t: Tuning) {
-  const top = safe(t.topSpeed, 240);
-  const t100 = safe(t.time0to100, 5);
-  const grip = Math.max(0, t.grip);
+  // Permanente Boni aus gefundenen Sammelitems einrechnen (mult. Modifier).
+  // Lazy import verhindert Zirkelabhängigkeit + SSR.
+  let bonus = { accel: 0, topSpeed: 0, grip: 0, brake: 0 };
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const mod = require("./perm-bonuses") as typeof import("./perm-bonuses");
+    bonus = mod.getPermBonuses();
+  } catch { /* ok during SSR */ }
+
+  const top = safe(t.topSpeed, 240) * (1 + bonus.topSpeed / 100);
+  const t100 = safe(t.time0to100, 5) / (1 + bonus.accel / 100);
+  const grip = Math.max(0, t.grip) * (1 + bonus.grip / 100);
   const steer = safe(t.steerAngle, 30);
 
-  const maxSpeed = top / 380;
-  const accel = (maxSpeed / Math.max(0.1, t100 * 60)) * 1.6;
-  // Sanftere Reibungskurve — high grip fühlt sich nicht mehr klebrig an.
-  const friction = Math.min(0.999, 0.93 + Math.min(grip, 150) / 150 * 0.06);
-  // Basis-Lenkrate — im Simulator wird sie geschwindigkeitsabhängig gedämpft.
+  const maxSpeed = top / 380; // Welt-Einheiten pro Frame
+  // --- Drag-Modell: v_next = v·(1−drag) + accel·throttle
+  //     Steady-State bei throttle=1: v = accel / drag = maxSpeed → accel = drag·maxSpeed.
+  //     Kalibrierung: erreiche 100 km/h in t100 Sekunden (bei 60 FPS).
+  const framesTo100 = Math.max(1, t100 * 60);
+  const ratio100 = Math.min(0.98, Math.max(0.05, 100 / top));
+  const drag = 1 - Math.pow(1 - ratio100, 1 / framesTo100);
+  const accel = drag * maxSpeed;
+
+  // Lenkrate (basisrate — Sim dämpft geschwindigkeitsabhängig)
   const turnSpeed = 0.0032 + Math.min(steer, 180) / 45 * 0.010 + Math.min(grip, 200) / 100 * 0.0025;
-  return { maxSpeed, accel, friction, turnSpeed, reverseFactor: 0.4 };
+
+  // Bremse: Basis 0.08 pro Frame · Bremse-Modifier durch Grip + brake-Bonus.
+  const brakeBonus = 1 + bonus.brake / 100;
+
+  return { maxSpeed, accel, drag, turnSpeed, reverseFactor: 0.4, brakeBonus };
 }
+
 
 /** Berechnet die km/h-Schaltschwellen für jeden Gang.
  *  Garantien:
