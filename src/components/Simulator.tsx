@@ -801,6 +801,7 @@ export function Simulator({
   return (
     <div className="relative h-screen w-screen overflow-hidden">
       <div ref={mountRef} className="absolute inset-0" />
+      <MobileControls />
       {isSplit && (
         <div className="pointer-events-none absolute inset-y-0 left-1/2 w-px bg-white/20" />
       )}
