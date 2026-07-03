@@ -287,16 +287,18 @@ export function Simulator({
       input.steerTarget = lerp(input.steerTarget, targetSteerRaw, Math.min(1, dt * 6));
       input.steer = lerp(input.steer, input.steerTarget, Math.min(1, dt * 8));
 
-      // Physik
-      p.velocity += phys.accel * throttleCurve;
-      p.velocity *= 1 - input.brake * 0.08;
+      // Physik — Drag-Modell (garantiert Terminal = maxSpeed).
+      p.velocity += phys.accel * throttleCurve - phys.drag * p.velocity;
+      p.velocity *= 1 - input.brake * 0.08 * phys.brakeBonus;
 
-      // Downforce: bei hoher Geschwindigkeit steigt die Reibung (bremst sanft)
+      // Downforce: leicht erhöhter Drag über 60 % Vmax (verhindert Nervosität, nicht Speed).
       const speedRatio = Math.min(1, Math.abs(p.velocity) / Math.max(0.0001, phys.maxSpeed));
-      const downforce = speedRatio > 0.6 ? 0.005 * (speedRatio - 0.6) : 0;
-      p.velocity *= Math.min(0.9995, phys.friction + downforce);
+      if (speedRatio > 0.6) {
+        p.velocity -= phys.drag * (speedRatio - 0.6) * p.velocity * 0.25;
+      }
 
-      p.velocity = Math.max(-phys.maxSpeed * phys.reverseFactor, Math.min(phys.maxSpeed, p.velocity));
+      p.velocity = Math.max(-phys.maxSpeed * phys.reverseFactor, Math.min(phys.maxSpeed * 1.02, p.velocity));
+
 
       // High-Speed-Lenk-Dämpfung: bei Vmax nur noch ~15 % Einschlag
       const turnDamp = 1 - Math.min(0.85, Math.pow(speedRatio, 1.4) * 0.9);
