@@ -98,7 +98,7 @@ const COMMON: Collectible[] = [
   mk("c-radio",   "Radio-Knopf",          "Volume 11.", "common", "📻", { kind: "coins", amount: 15 }),
   mk("c-sticker", "Racing-Sticker",       "Halb abgezogen.", "common", "🏎️", { kind: "coins", amount: 18 }),
   mk("c-brochure","Prospekt '84",          "Roter Roadster auf Cover.", "common", "📇", { kind: "coins", amount: 25 }),
-  mk("c-pen",     "Werbe-Kugelschreiber", "„Autohaus Klaus".", "common", "🖊️", { kind: "coins", amount: 6 }),
+  mk("c-pen",     "Werbe-Kugelschreiber", "Autohaus Klaus, seit 1978.", "common", "🖊️", { kind: "coins", amount: 6 }),
   mk("c-keyc",    "Schlüsselanhänger",    "Silberner Kranz.", "common", "🔗", { kind: "coins", amount: 20 }),
   mk("c-manual",  "Handbuch-Fetzen",      "Kapitel 4 fehlt.", "common", "📕", { kind: "coins", amount: 12 }),
 ];
