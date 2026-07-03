@@ -789,6 +789,7 @@ export function Simulator({
       room?.destroy();
       unDev();
       unNav();
+      unBonus();
       renderer.dispose();
       if (renderer.domElement.parentNode === mount) mount.removeChild(renderer.domElement);
     };
