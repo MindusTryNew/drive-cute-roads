@@ -67,6 +67,11 @@ export function Simulator({
   const [mapZoom, setMapZoom] = useState(1); // 0.5, 1, 2
 
   useEffect(() => {
+    // Perm-Boni-Cache initialisieren, bevor physicsFromTuning läuft.
+    (globalThis as { __permBonuses?: ReturnType<typeof getPermBonuses> }).__permBonuses = getPermBonuses();
+    const unBonus = subscribePermBonuses((b) => {
+      (globalThis as { __permBonuses?: ReturnType<typeof getPermBonuses> }).__permBonuses = b;
+    });
     const mount = mountRef.current!;
     const { preset } = resolvePreset(getQualitySetting());
     const scene = new THREE.Scene();
