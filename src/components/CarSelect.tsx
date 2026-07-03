@@ -48,6 +48,8 @@ export function CarSelect({
   onOpenMods,
   onOpenTutorial,
   onOpenMapEditor,
+  onOpenInventory,
+  onOpenCatalog,
   mode = "solo",
   onModeChange,
   headline,
@@ -61,6 +63,8 @@ export function CarSelect({
   onOpenMods?: () => void;
   onOpenTutorial?: () => void;
   onOpenMapEditor?: () => void;
+  onOpenInventory?: () => void;
+  onOpenCatalog?: () => void;
   mode?: Mode;
   onModeChange?: (m: Mode) => void;
   headline?: string;
