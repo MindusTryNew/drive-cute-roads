@@ -218,10 +218,9 @@ export const PACK_META: Record<PackType, { label: string; emoji: string; color: 
   starter:  { label: "Starter-Paket",  emoji: "📦", color: "#9ca3af", size: 3,  desc: "Kleine Kiste mit 3 Items." },
   standard: { label: "Standard-Kiste", emoji: "🎁", color: "#4ade80", size: 5,  desc: "5 Items, oft ungewöhnlich." },
   deluxe:   { label: "Deluxe-Truhe",   emoji: "🧰", color: "#c084fc", size: 8,  desc: "8 Items, garantiert selten." },
-  mythic:   { label: "Mythische Kiste","emoji" in {}?"":"", color: "#f6d96a", size: 12, desc: "12 Items, garantiert episch." } as never,
+  mythic:   { label: "Mythische Kiste", emoji: "🌟", color: "#f6d96a", size: 12, desc: "12 Items, garantiert episch." },
 };
-// Fix accidental broken literal above:
-PACK_META.mythic = { label: "Mythische Kiste", emoji: "🌟", color: "#f6d96a", size: 12, desc: "12 Items, garantiert episch." };
+
 
 // Gewichtung Rarity pro Pakettyp (roulette wheel).
 const WEIGHTS: Record<PackType, Record<Rarity, number>> = {
