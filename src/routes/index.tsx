@@ -32,6 +32,8 @@ type View =
   | { kind: "mods" }
   | { kind: "tutorial" }
   | { kind: "map-editor" }
+  | { kind: "inventory" }
+  | { kind: "catalog" }
   | { kind: "pick-p2"; spec1: CarSpec }
   | { kind: "lobby"; spec: CarSpec }
   | { kind: "sim-solo"; spec: CarSpec }
