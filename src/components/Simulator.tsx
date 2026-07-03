@@ -566,7 +566,29 @@ export function Simulator({
         p1.velocity = Math.max(-2, Math.min(2, p1.velocity * 1.001));
       }
 
+      // Open-World Pakete: alle 2 s würfeln + Pickup-Check
+      packTick += dt;
+      if (packTick > 2) {
+        packTick = 0;
+        if (Math.random() < 0.012) spawnWorldPack();
+      }
+      for (let i = worldPacks.length - 1; i >= 0; i--) {
+        const wp = worldPacks[i];
+        wp.group.rotation.y += dt * 1.5;
+        wp.group.children[0].position.y = 2 + Math.sin(elapsed * 3 + i) * 0.4;
+        const dx = wp.pos.x - p1.group.position.x;
+        const dz = wp.pos.z - p1.group.position.z;
+        if (dx * dx + dz * dz < 16) {
+          addPack(wp.type);
+          toast.success(`${PACK_META[wp.type].emoji} ${PACK_META[wp.type].label} gefunden!`);
+          scene.remove(wp.group);
+          worldPacks.splice(i, 1);
+        }
+      }
+
       drawMinimap();
+
+
 
       renderer.clear();
       const w = mount.clientWidth, h = mount.clientHeight;
