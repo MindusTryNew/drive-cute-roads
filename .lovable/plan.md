@@ -1,85 +1,84 @@
-## Bugfixes
+## Bugfix: Autos beschleunigen nicht bis Top-Speed
 
-**1. Missionen zahlen keine Coins.**
-Root Cause: `completeMission` ruft `addCoins()` synchron, aber `setMissionState({ progress: 1 })` und `activeMission = null` laufen in derselben Frame. In seltenen Fällen wird `completeMission` mehrfach ausgelöst, bevor `activeMission` genullt ist — der zweite Aufruf bricht wegen `done.includes(id)` ab, aber der erste hätte laut Logs die Coins gegeben. Tatsächliches Problem: **`getActiveMission()` wird nur beim Sim-Start einmal ausgewertet** (Closure-Variable `activeMission`). Wenn im Missions-Screen eine Mission gewählt wird während der Sim läuft → nichts. Und: `addCoins` gibt zwar `coins` weiter, aber der HUD im Garage-Screen liest sie nur beim Mount, ohne Subscribe → Nutzer sieht keine Änderung und denkt „keine Coins".
-Fix:
-- `Simulator`: `activeMission` bei jedem Frame aus `getActiveMissionId()` neu lesen (leichte Lookup), damit Mission-Wechsel greift; nach Completion einen Toast „+X 🪙" einblenden, damit die Auszahlung sichtbar ist.
-- `CarSelect` und alle Screens, die Coins anzeigen, per `subscribeCoins` re-rendern.
+**Root Cause (nachgerechnet in `physicsFromTuning`):**
+Das Physik-Modell nutzt multiplikative Reibung: `v += accel; v *= friction`. Endgeschwindigkeit ist dann `accel / (1 - friction)` — nicht `maxSpeed`. Ergebnis mit aktuellen Werten:
 
-**2. Gangschaltung — nur visuell, nicht technisch.**
-Wunsch: Motor/Beschleunigung soll nicht mehr an Gangwechsel gekoppelt sein (verursacht Hänger). Gang-Anzeige bleibt als reines UI-Element.
-Fix in `Simulator.tsx`:
-- Entferne Downshift-Freeze-Effekt und den 2.5-s-Fallback-Loop. Beschleunigung nutzt nur `physicsFromTuning` (accel + friction + maxSpeed), keine ratio-basierten Kappungen.
-- Für die HUD-Anzeige: `visualGear = 1 + count(shifts.filter(s => kmh >= s))`, `nextShift = shifts[visualGear-1] ?? null`. Kein Effekt auf Physik.
-- `shiftSpeeds` bleibt bestehen für die Anzeige und Builder-Preview.
+| Auto        | topSpeed | Terminal aus Formel | = km/h  |
+|-------------|----------|---------------------|---------|
+| Aurora GT   | 260      | 0.00434 / 0.0412    | **40**  |
+| Monolith X  | 200      | 0.00180 / 0.038     | **18**  |
+| Vortex R1   | 340      | 0.00918 / 0.0348    | **99**  |
 
-## Content
+Die von den Nutzern gemeldeten Grenzwerte matchen exakt. `gearRatios` sind unbeteiligt (Gänge sind seit letztem Update rein visuell).
 
-**3. Map-Editor (internes Tool).**
-Neue Route `/map-editor` erreichbar über Button „🗺️ Map-Editor" im Mod-Browser und in `CarSelect`.
-- 3D-Viewport (three.js) mit Draufsicht + freier Kamera. Grid + Grundfläche identisch zur Welt.
-- Toolbar: **Gebäude · Rampe · Hügel · Straßensegment · Checkpoint**. Klick auf Grundfläche platziert Objekt, Drag zum Verschieben, Rechts-Panel für `position/rotation/scale/color`.
-- Speichern → erzeugt ein v2-Mod `{kind:"map", payload:{objects:[...]}}` und ruft `applyMod()` (lokal installieren) + optional „In Mod-Browser hochladen".
-- Laden bestehender Map-Mods aus `installedMapMods` als Bearbeitungs-Basis.
-- Nutzt bereits vorhandenes `mountMapMods` (world.ts), kein neuer Runtime-Code.
+**Fix in `src/lib/car-spec.ts` (`physicsFromTuning`):**
+- Umbau auf Drag-Modell: `drag = accel / maxSpeed` → Terminal = `maxSpeed` per Konstruktion.
+- `accel` wird so kalibriert, dass `v(t) = vmax·(1 − e^(−drag·t·60))` bei `t = t100` exakt 100 km/h erreicht: `accel = -ln(1 - 100/topSpeed) · maxSpeed / (t100·60)` (mit Clamp für `topSpeed ≤ 100`).
+- Rückgabe erhält neues Feld `drag` statt `friction`. `Simulator.updatePlayer` wechselt Zeile 292/297 auf `v += (accel·throttle - drag·v) ; v -= brake·v·0.08`. Downforce bleibt als leichte Zusatzreibung, aber additiv über `drag`, sodass Terminal ≤ maxSpeed statt darunter.
+- `reverseFactor` bleibt.
 
-**4. Tuning.**
-Kurze Klärung vor der Umsetzung: siehe Frage unten. Grund-Update:
-- CarBuilder-Tuning-Sektion um Presets („Straße", „Rennstrecke", „Drift", „Offroad") + „Auf Standard zurücksetzen" ergänzen.
-- Live-0-100- und Bremsweg-Simulation im Builder (headless run gegen `physicsFromTuning`), damit Werte spürbar werden.
+**Verifikation:** Anschließend im Simulator jeweils Aurora / Monolith / Vortex Vollgas fahren und HUD-km/h gegen `topSpeed` prüfen (Toleranz ±3 km/h).
 
-**5. Navigationssystem für die Minimap.**
-- „Ziel setzen" per Rechtsklick auf die Minimap → speichert Weltkoordinate.
-- Auf der Minimap: pulsierender Ziel-Pin + gestrichelte Linie vom Auto zum Ziel; Distanzlabel.
-- In der 3D-Welt: schwebender Ziel-Beacon (Beam) + kleine Richtungspfeil-HUD-Anzeige „↖ 240 m".
-- Bei aktiver Delivery-Mission wird der jeweils aktuelle Pickup/Drop automatisch als Navigationsziel gesetzt.
+---
 
-**6. DevMode.**
-- Neuer localStorage-Flag `garage:devMode` (bool). Freischaltung durch:
-  - Kauf für 50.000 🪙 (Button „🛠️ DevMode freischalten" in `CarSelect`, sichtbar solange nicht aktiv).
-  - Einlösen des Codes `D3VM0DE999XXX` (siehe Punkt 7).
-- Effekte wenn aktiv:
-  - CarBuilder ignoriert Coin-Kosten und Slot-Limit.
-  - Keine Marktgebühr, keine Tageslimits.
-  - Neuer „Dev"-Tab im HUD des Simulators: FPS/Kamera-Cheats, Teleport zum Cursor auf Minimap, unbegrenzte Beschleunigung, Debug-Overlays (Kollisionsboxen, Shift-Schwellen).
-  - Coins können im DevMode-Panel gesetzt werden.
+## Sammel-Update (Collectibles-System)
 
-**7. Premium-Codes.**
-- Neue Datei `src/lib/premium-codes.ts` mit statischem Katalog:
-  ```
-  D3VM0DE999XXX → unlockDevMode
-  ```
-  (Katalog erweiterbar; jeder Code hat `reward: "devmode" | { coins: number } | { slot: 1 } | ...`.)
-- Speicherung eingelöster Codes in `localStorage["garage:redeemed"]`. Jeder Code **nur einmal** einlösbar pro Browser.
-- UI: neuer Button „🎁 Code einlösen" in `CarSelect` öffnet Dialog mit Input + Toast bei Erfolg/„bereits eingelöst"/„ungültig".
+**Datenmodell (rein lokal, `localStorage`):**
+- `src/lib/collectibles.ts` — Katalog aus **150+ Items** in Rarity-Tiers:
+  - `common` (60), `uncommon` (45), `rare` (30), `epic` (12), `legendary` (5).
+  - Jedes Item: `{ id, name, desc, rarity, emoji, effect?: Effect }`.
+  - `Effect` = `{ kind: "coins", amount } | { kind: "perm", stat: "accel"|"topSpeed"|"grip"|"brake", pct } | { kind: "temp", stat, pct, seconds } | { kind: "cosmetic" }`.
+- **4 Paket-Typen** mit unterschiedlicher Größe & Drop-Verteilung:
+  - `starter` (3 Items, 90 % common/uncommon)
+  - `standard` (5 Items, +rare Chance)
+  - `deluxe` (8 Items, garantiert 1 rare, epic möglich)
+  - `mythic` (12 Items, garantiert 1 epic, legendary möglich)
+- `inventoryStore` (Pakete) & `collectionStore` (gefundene Items). Beide mit `subscribe()`-Pattern wie `coins.ts`.
+- Permanente Effekte werden in `src/lib/perm-bonuses.ts` aggregiert und in `physicsFromTuning` als multiplikativer Modifier eingerechnet (kompatibel zum Drag-Fix oben). Temporäre Effekte laufen als Timer im Simulator und werden im HUD als aktive Buffs angezeigt.
+
+**Erhalt von Paketen:**
+1. **Missions-Belohnung:** Ausgewählte Missionen (spd-200, spd-300, spd-400, spd-500, del-long, del-marathon, tm-30, tm-60, tm-120, tm-300) geben zusätzlich zum Coin-Reward ein Paket. Skaliert mit Schwierigkeit (starter → mythic). Verdrahtung in `missions.ts` (`completeMission`) und Toast im Simulator.
+2. **Open-World-Drop:** In `Simulator.tsx` alle ~2 s Ticker, der bei Bewegung mit **1.2 % Chance** einen schwebenden Paket-Beacon in 40–120 m Umkreis spawnt (Typ nach gewichteter Verteilung: 70 % starter, 22 % standard, 7 % deluxe, 1 % mythic). Beim Durchfahren → Toast + Sound + Inventory-Add. Maximal 3 offene Beacons gleichzeitig.
+
+**UI-Komponenten (neu):**
+- `src/components/Inventory.tsx` — Grid der Pakete, Öffnen-Button pro Paket.
+- `src/components/PackOpeningDialog.tsx` — Öffnungs-Animation:
+  - Phase 1 (0.6 s): Paket zittert/skaliert (`animate-scale-in`, custom `shake`).
+  - Phase 2: Item-Karten flippen einzeln auf (0.3 s versetzt), Rarity-Glow farbig.
+  - Phase 3: „Zum Katalog" / „Weiter"-Buttons.
+- `src/components/CollectionCatalog.tsx` — Katalog aller 150+ Items, Filter (Alle/Rarity/Effekt-Typ/Gefunden/Fehlt), Fortschrittsbalken „X / 156", Silhouetten für unbekannte Items.
+- Buttons „🎒 Inventar" und „📖 Katalog" in `CarSelect.tsx` (Garage-Header).
+
+**Mobile-Tastensteuerung:**
+- `src/components/MobileControls.tsx` — On-Screen-Overlay, nur sichtbar bei `useIsMobile()` oder Touch-Device-Detection:
+  - Links: Steuerkreuz (◀ ▶) für Lenken.
+  - Rechts: Runde Buttons ⛽ (Gas), 🅱 (Bremse), ⏪ (Rückwärts).
+  - Kleine Buttons oben rechts: 📷 (Kamera), 🎯 (Nav-Ziel abbrechen), 🎒 (Inventar-Quick-Open).
+  - Buttons setzen dieselben `keys[...]`-Flags wie Tastatur (`ArrowUp`, `ArrowLeft` etc.), damit `updatePlayer` unverändert bleibt.
+  - Feedback: haptisches `navigator.vibrate(15)` bei Tap (falls verfügbar).
 
 ## Technische Details
 
 **Neue Files:**
-- `src/routes/map-editor.tsx`
-- `src/components/MapEditor.tsx` (three.js Viewport + Tools)
-- `src/lib/premium-codes.ts`
-- `src/lib/devmode.ts` (Flag + Subscribe)
-- `src/lib/navigation.ts` (Ziel-State + Subscribe)
-- `src/components/RedeemCodeDialog.tsx`
-- `src/components/DevPanel.tsx`
+- `src/lib/collectibles.ts` (Katalog, 150+ Items, Paket-Roll-Funktion mit gewichtetem RNG)
+- `src/lib/inventory.ts` (Pakete-Store)
+- `src/lib/collection.ts` (Gefundene-Items-Store)
+- `src/lib/perm-bonuses.ts` (Aggregation permanenter Effekte)
+- `src/components/Inventory.tsx`
+- `src/components/PackOpeningDialog.tsx`
+- `src/components/CollectionCatalog.tsx`
+- `src/components/MobileControls.tsx`
 
 **Editierte Files:**
-- `src/components/Simulator.tsx` (Mission-Refresh, Gang nur visuell, Nav-Beacon, DevPanel-Hook, Minimap-Ziel-Klick)
-- `src/components/MissionsScreen.tsx` (Toast bei Reward — optional, primär im Sim)
-- `src/components/CarSelect.tsx` (Coins-Subscribe, Buttons für DevMode-Kauf, Code einlösen, Map-Editor)
-- `src/components/CarBuilder.tsx` (DevMode-Bypass, Tuning-Presets, Live-Simulation)
-- `src/components/ModBrowser.tsx` (Link zum Map-Editor)
-- `src/lib/car-spec.ts` (`shiftSpeeds` bleibt, keine Physik-Nutzung mehr im Sim)
-- `src/routes/index.tsx` (Route für Map-Editor View)
+- `src/lib/car-spec.ts` — Drag-Modell, Bonus-Integration.
+- `src/components/Simulator.tsx` — neue Physik-Formel, Open-World-Paket-Spawner + Pickup-Trigger, aktive-Buffs-HUD, `MobileControls` einbinden.
+- `src/lib/missions.ts` — Paket-Reward-Field, Vergabe bei Completion.
+- `src/components/MissionsPanel.tsx` / `MissionsScreen.tsx` — Paket-Icon an Missionen anzeigen.
+- `src/components/CarSelect.tsx` — Buttons Inventar/Katalog.
 
-**Keine Migration nötig.** Alles lokal (localStorage) — Codes sind clientseitig, entsprechend keine Anti-Cheat-Härtung.
-
-## Klärungsfrage
-
-Was genau soll unter „Tuning" erweitert werden — nur die genannten Presets + Live-Simulation im Builder, oder soll DevMode zusätzlich einen In-Sim-Tuning-Slider (während der Fahrt Werte ändern) bekommen?
+Keine DB-Migration nötig — alles lokal.
 
 ## Out of Scope
-- Server-seitige Code-Validierung / Rate-Limit (Codes sind rein lokal).
-- Kollaborativer Map-Editor.
-- Wegfindung mit A* — die Navigation ist eine Luftlinien-Anzeige, keine Routenberechnung.
+- Server-Sync / Cloud-Save der Sammlung.
+- Handel/Verschenken zwischen Spielern.
+- Cosmetic-Items als 3D-Anbauteile (Katalogeintrag reicht — Farbe/Sticker-Effekt später).
