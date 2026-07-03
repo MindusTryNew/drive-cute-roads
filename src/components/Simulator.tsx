@@ -218,6 +218,40 @@ export function Simulator({
     setBeacon(navDest);
     const unNav = subscribeDest(setBeacon);
 
+    // ---- Open-World Sammel-Paket-Drops (1.2 % Chance / Tick) ----
+    type WorldPack = { type: PackType; group: THREE.Group; pos: THREE.Vector3 };
+    const worldPacks: WorldPack[] = [];
+    let packTick = 0;
+    const spawnWorldPack = () => {
+      if (worldPacks.length >= 3) return;
+      const type = rollWorldPackType();
+      const meta = PACK_META[type];
+      const ang = Math.random() * Math.PI * 2;
+      const r = 40 + Math.random() * 80;
+      const x = p1.group.position.x + Math.cos(ang) * r;
+      const z = p1.group.position.z + Math.sin(ang) * r;
+      const lim = world.WORLD_SIZE / 2 - 20;
+      if (Math.abs(x) > lim || Math.abs(z) > lim) return;
+      const g = new THREE.Group();
+      const col = new THREE.Color(meta.color);
+      const box = new THREE.Mesh(
+        new THREE.BoxGeometry(2, 2, 2),
+        new THREE.MeshStandardMaterial({ color: col, emissive: col, emissiveIntensity: 0.6 }),
+      );
+      box.position.y = 2;
+      g.add(box);
+      const beam = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.5, 0.5, 30, 8, 1, true),
+        new THREE.MeshBasicMaterial({ color: col, transparent: true, opacity: 0.35, side: THREE.DoubleSide }),
+      );
+      beam.position.y = 15;
+      g.add(beam);
+      g.position.set(x, 0, z);
+      scene.add(g);
+      worldPacks.push({ type, group: g, pos: g.position });
+    };
+
+
     const randInRing = (minR: number, maxR: number) => {
       for (let i = 0; i < 30; i++) {
         const ang = Math.random() * Math.PI * 2;
