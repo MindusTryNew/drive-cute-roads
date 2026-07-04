@@ -1,25 +1,26 @@
 // Paket-Inventar (localStorage). Speichert nur die Pakettypen als String-Array.
-import type { PackType } from "./collectibles";
+import { PACK_TYPES, type PackType } from "./collectibles";
 
 const KEY = "garage:inventory";
 type Listener = (packs: PackType[]) => void;
 const listeners = new Set<Listener>();
 
+const safeLS = () => typeof localStorage !== "undefined" ? localStorage : null;
+const isPack = (x: unknown): x is PackType => typeof x === "string" && (PACK_TYPES as string[]).includes(x);
+
 export function getInventory(): PackType[] {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = safeLS()?.getItem(KEY);
     if (!raw) return [];
     const arr = JSON.parse(raw);
-    return Array.isArray(arr) ? arr.filter((x): x is PackType =>
-      x === "starter" || x === "standard" || x === "deluxe" || x === "mythic"
-    ) : [];
+    return Array.isArray(arr) ? arr.filter(isPack) : [];
   } catch {
     return [];
   }
 }
 
 function save(list: PackType[]) {
-  localStorage.setItem(KEY, JSON.stringify(list));
+  safeLS()?.setItem(KEY, JSON.stringify(list));
   for (const l of listeners) l([...list]);
 }
 
@@ -29,7 +30,6 @@ export function addPack(p: PackType) {
   save(list);
 }
 
-/** Entfernt genau eine Instanz des Typs (für „Öffnen"). */
 export function consumePack(p: PackType): boolean {
   const list = getInventory();
   const i = list.indexOf(p);
@@ -41,5 +41,5 @@ export function consumePack(p: PackType): boolean {
 
 export function subscribeInventory(cb: Listener): () => void {
   listeners.add(cb);
-  return () => listeners.delete(cb);
+  return () => { listeners.delete(cb); };
 }

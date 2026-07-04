@@ -1,5 +1,13 @@
-// Collectibles-Katalog: 150+ Items in 5 Rarity-Tiers + 4 Paket-Typen.
-export type Rarity = "common" | "uncommon" | "rare" | "epic" | "legendary";
+// Collectibles-Katalog: 450+ Items in 8 Rarity-Tiers + 6 Paket-Typen.
+export type Rarity =
+  | "common"
+  | "uncommon"
+  | "rare"
+  | "epic"
+  | "legendary"
+  | "mythical"
+  | "cosmic"
+  | "celestial";
 
 export type Effect =
   | { kind: "coins"; amount: number }
@@ -16,13 +24,15 @@ export type Collectible = {
   effect?: Effect;
 };
 
-// Rarity-Farben (Tailwind-kompatibel als Hex)
 export const RARITY_COLORS: Record<Rarity, string> = {
   common: "#9ca3af",
   uncommon: "#4ade80",
   rare: "#5b8def",
   epic: "#c084fc",
   legendary: "#f6d96a",
+  mythical: "#ff6ec7",
+  cosmic: "#00f0ff",
+  celestial: "#ffffff",
 };
 
 export const RARITY_LABEL: Record<Rarity, string> = {
@@ -31,13 +41,34 @@ export const RARITY_LABEL: Record<Rarity, string> = {
   rare: "Selten",
   epic: "Episch",
   legendary: "Legendär",
+  mythical: "Mythisch",
+  cosmic: "Kosmisch",
+  celestial: "Himmlisch",
 };
 
-// ---------------- Katalog ----------------
-// Kompakt generiert um die 150-Marke zu übertreffen.
+export const RARITY_ORDER: Rarity[] = [
+  "common", "uncommon", "rare", "epic", "legendary", "mythical", "cosmic", "celestial",
+];
+
+// Cooldowns für aktivierbare Temp-Effekte (Sekunden).
+export const RARITY_COOLDOWN_SEC: Record<Rarity, number> = {
+  common: 30,
+  uncommon: 60,
+  rare: 120,
+  epic: 300,
+  legendary: 600,
+  mythical: 900,
+  cosmic: 1800,
+  celestial: 3600,
+};
+
 function mk(id: string, name: string, desc: string, rarity: Rarity, emoji: string, effect?: Effect): Collectible {
   return { id, name, desc, rarity, emoji, effect };
 }
+
+// ============================================================
+//  Bestehende Basis-Items (Kurzfassung: Coins/Cosmetic/Temp)
+// ============================================================
 
 const COMMON: Collectible[] = [
   mk("c-nut",     "Rostige Mutter",       "Aus einem alten Motor.", "common", "🔩", { kind: "coins", amount: 10 }),
@@ -207,35 +238,218 @@ const LEGENDARY: Collectible[] = [
   mk("l-jackpot", "Jackpot-Chip",         "+5000 Coins.", "legendary", "💰", { kind: "coins", amount: 5000 }),
 ];
 
-export const COLLECTIBLES: Collectible[] = [...COMMON, ...UNCOMMON, ...RARE, ...EPIC, ...LEGENDARY];
+// ============================================================
+//  Programmatisch erzeugte Erweiterung (+300 Items).
+//  Wir erzeugen thematische Varianten pro Rarity.
+// ============================================================
+
+type Stat = "accel" | "topSpeed" | "grip" | "brake";
+const STATS: Stat[] = ["accel", "topSpeed", "grip", "brake"];
+
+function gen(
+  prefix: string,
+  rarity: Rarity,
+  names: string[],
+  emojis: string[],
+  makeEffect: (i: number) => Effect | undefined,
+  descPrefix = "",
+): Collectible[] {
+  const out: Collectible[] = [];
+  for (let i = 0; i < names.length; i++) {
+    const em = emojis[i % emojis.length];
+    out.push(mk(`${prefix}-${i}`, names[i], `${descPrefix}${names[i]}.`.trim(), rarity, em, makeEffect(i)));
+  }
+  return out;
+}
+
+// ---------- +80 common ----------
+const COMMON_EXT_NAMES = [
+  "Alter Reifenheber","Öllappen","Kaffeetasse-Deko","Verrostete Kette","Alte Scheibe","Motorhaubenstern","Autoradio-Antenne",
+  "Verrostete Schraube","Chrom-Splitter","Fußmatten-Rest","Alter Bierdeckel","Streusalz-Klumpen","Fensterheber-Kurbel",
+  "Vergilbte Landkarte","Bremshebel-Federchen","Aufkleber-Rolle","Alte Batteriezelle","Fahrer-Notizbuch","Trocknerblatt",
+  "Kleines Emblem","Reparatur-Zettel","Verrostete Klammer","Werkstatt-Handtuch","Zylinder-Rest","Fließband-Schnipsel",
+  "Kunststoff-Blende","Alte Zange","Rissiger Spiegel","Gebrauchter Kabelbinder","Vergessene Handschellen","Motoröl-Kanister",
+  "Verrostete Antenne","Kupferrohr","Radio-Frequenzskala","Zylinderkopf-Splitter","Auspuff-Endstück","Rennkleber-Rest",
+  "Fensterheber-Griff","Halterungs-Winkel","Gummi-Distanz","Sicherungs-Karton","Alte Landkarte","Vintage-Verschluss",
+  "Aluminium-Winkel","Kurze Kette","Nietenrest","Klingel-Schraube","Alter Halterungsknopf","Verzinkte Schelle",
+  "Alter Kabelclip","Kleiner Verschluss","Fensterheber-Rad","Verzinkte Feder","Ballstopper","Verlorene Öse","Schaumstoff-Rest",
+  "Rissiger Kunststoffgriff","Kleine Schutzkappe","Zerkratzter Aufkleber","Ausleger-Rest","Radlager-Bruchstück",
+  "Kompressor-Feder","Ventilkegel","Fühlerlehre","Kabel-Ummantelung","Reflektor-Fetzen","Alte Türklinke",
+  "Vintage-Türgriff","Verrostetes Scharnier","Tankdeckel-Reste","Windschutz-Stück","Alter Klebstoff","Radialdichtung",
+  "Distanzscheibe","Verrostetes Rohr","Alte Rohrschelle","Feuerlöscher-Blende","Zünd-Kontakt","Windleitblech-Stück",
+  "Vergessene Rasterschraube","Verrostete Feder-Ummantelung","Bordwerkzeug-Reste",
+];
+const COMMON_EMOJIS = ["🔩","🔧","🛠️","⚙️","🗝️","🪛","🔗","🧲","📎","🧷","🧵","🪥","🧴","🥤","🥫","📻","💿","📼","🎞️","📓"];
+const COMMON_EXT = gen("cx", "common", COMMON_EXT_NAMES, COMMON_EMOJIS, (i) => ({ kind: "coins", amount: 5 + (i % 30) }));
+
+// ---------- +50 uncommon ----------
+const UNCOMMON_EXT_NAMES = [
+  "Sport-Bremsleitung","Renn-Kupplung","Alu-Halterung","Kevlar-Fetzen","Titan-Distanz","Sport-Feder","Rennfeder Set",
+  "Digitaler Drehzahlmesser","Sport-Auspuff-Aufsatz","Vintage-Getriebe","Zünd-Booster","Sport-Kupplungsfeder",
+  "Anti-Roll-Bar-Miniatur","Karbon-Türgriff","LED-Konsole","Sport-Federbein","Renn-Zündspule","Titan-Ventildeckel",
+  "Sport-Turbo-Mini","Carbon-Splitterlippe","LED-Rückleuchte","Sport-Kupplungsscheibe","Renn-Schaltknüppel-Miniatur",
+  "Titan-Radbolzen","Karbon-Pedal-Set","Rennsport-Filter","Sport-Kühler-Miniatur","Alu-Kotflügelverbreiterung",
+  "Renn-Bremskolben","LED-Innenraumkit","Karbon-Instrumententafel","Renn-Sportsitz-Miniatur","Titan-Gasfeder",
+  "Sport-Startergetriebe","Alu-Motorschutz","Karbon-Diffusor-Mini","Renn-Zündschloss","Sport-Zylinderkopfdichtung",
+  "LED-Blinker-Set","Sport-Kolbenring","Titan-Auspuffhalter","Karbon-Spoiler-Mini","Renn-Schaltmatrix","LED-Lauflicht-Modul",
+  "Sport-Wärmeleitpaste","Rennsport-Nockenwelle","Alu-Achsschenkel","Karbon-Türverkleidung","Sport-Schwungrad",
+  "Titan-Ölwannenschraube",
+];
+const UNCOMMON_EMOJIS = ["🔧","💨","⚡","🌀","🌐","🎯","🌪️","🎢","🚀","🅱️","🧤","⚙️","🎨","🕶️","💫","📐","📗"];
+const UNCOMMON_EXT = gen("ux", "uncommon", UNCOMMON_EXT_NAMES, UNCOMMON_EMOJIS, (i) => {
+  const kind = i % 3;
+  if (kind === 0) return { kind: "coins", amount: 50 + (i % 100) };
+  if (kind === 1) return { kind: "temp", stat: STATS[i % 4], pct: 2 + (i % 3), seconds: 45 + (i % 6) * 15 };
+  return { kind: "cosmetic" };
+});
+
+// ---------- +40 rare ----------
+const RARE_EXT_NAMES = [
+  "Renn-Motorblock","Karbon-Chassis-Bauteil","Titan-Achswelle","Vollkarbon-Radkasten","Renn-Kupplungspaket",
+  "Titan-Federbein","Renn-Sechsganggetriebe","Motorsteuergerät Pro","Renn-Auspuffanlage","Karbon-Fahrwerkslenker",
+  "Titan-Bremsanker","Renn-Kraftstoffpumpe","Karbon-Karosserie-Stützstrebe","Motorsport-Wasserkühler","Renn-Ölkühler",
+  "Titan-Schaltgestänge","Karbon-Doppelkupplung","Renn-Fahrwerksfeder","Titan-Kolben-Set","Karbon-Bremssattel-Skin",
+  "Renn-Getriebe-Kit","Motorsport-Verteilerkappe","Titan-Nockenwellen-Set","Karbon-Ansaugbrücke","Renn-Zündverteiler",
+  "Titan-Kurbelwelle","Karbon-Türverstärkung","Renn-Anti-Squat-Set","Titan-Kolbenpin","Karbon-Getriebetunnel",
+  "Renn-Ölfilter","Titan-Zylinderkopfschraube","Karbon-Frontsplitter","Renn-Motorhalter","Titan-Kupplungspaket",
+  "Karbon-Airbox","Renn-Fahrwerksdämpfer","Titan-Schmiederad","Karbon-Diffusor","Renn-Elektroniksteuergerät",
+];
+const RARE_EMOJIS = ["🌟","💨","🛑","🔩","⚙️","🅱️","🎺","🧠","🪽","🏋️","🚀","🛞","🗺️","🎌"];
+const RARE_EXT = gen("rx", "rare", RARE_EXT_NAMES, RARE_EMOJIS, (i) => {
+  const k = i % 4;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 0.2 + (i % 3) * 0.1 };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 4 + (i % 4), seconds: 180 + (i % 4) * 60 };
+  if (k === 2) return { kind: "coins", amount: 180 + (i % 6) * 30 };
+  return { kind: "cosmetic" };
+});
+
+// ---------- +35 epic ----------
+const EPIC_EXT_NAMES = [
+  "Meister-Motorblock","Prototyp-Turbolader","Werksrenn-Fahrwerk","Prototype-ECU","Meister-Kupplungspaket",
+  "Prototyp-Karbon-Chassis","Werksrenn-Getriebe","Meister-Nockenwellen-Set","Prototyp-Kraftstoff-System",
+  "Werksrenn-Auspuffanlage","Meister-Bremsanlage","Prototyp-Doppelturbo","Werksrenn-Aerodynamikkit",
+  "Meister-Getriebesatz","Prototyp-Zylinderkopf","Werksrenn-Kurbelwelle","Meister-Kolben-Set","Prototyp-Direkteinspritzung",
+  "Werksrenn-Motorsteuerung","Meister-Fahrwerksdämpfer","Prototyp-Karbon-Aero","Werksrenn-Federung","Meister-Antriebswelle",
+  "Prototyp-Elektromagnet-Kupplung","Werksrenn-Bremsscheiben-Kit","Meister-Getriebetunnel","Prototyp-Aero-Splitter",
+  "Werksrenn-Kompressor","Meister-Motorhaube","Prototyp-Airbox","Werksrenn-Schaltmatrix","Meister-Nockenwellenrad",
+  "Prototyp-Bremskolben","Werksrenn-Kupplungsscheibe","Meister-Fahrwerkskit",
+];
+const EPIC_EMOJIS = ["💎","💜","👑","🪨","🔮","🌈","🥋","💨","🅱️","🚀","🥇","🏆"];
+const EPIC_EXT = gen("ex", "epic", EPIC_EXT_NAMES, EPIC_EMOJIS, (i) => {
+  const k = i % 4;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 0.5 + (i % 3) * 0.15 };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 12 + (i % 5), seconds: 480 + (i % 3) * 120 };
+  if (k === 2) return { kind: "coins", amount: 700 + (i % 5) * 100 };
+  return { kind: "cosmetic" };
+});
+
+// ---------- +25 legendary ----------
+const LEGENDARY_EXT_NAMES = [
+  "Königs-Nockenwelle","Drachen-Kolben","Phönix-Auspuff","Titanen-Kurbelwelle","Ewige Kupplung","Aurum-Bremsanlage",
+  "Rubin-Getriebe","Saphir-Zylinderkopf","Diamant-Krankshaft","Onyx-ECU","Meteor-Turbo","Vulkan-Auspuffkit",
+  "Sturm-Reifensatz","Blitz-Fahrwerk","Nova-Airbox","Stern-Kompressor","Kristall-Antriebswelle","Legenden-Chassis",
+  "Uralt-Motorblock","Königs-Bremsscheiben","Drachen-Turbo","Phönix-Getriebe","Legenden-Fahrwerk","Titan-Krone-Kit",
+  "Meister-Championenkit",
+];
+const LEGENDARY_EMOJIS = ["⚡","🔱","❤️‍🔥","🌑","💰","🏆","👑","💎"];
+const LEGENDARY_EXT = gen("lx", "legendary", LEGENDARY_EXT_NAMES, LEGENDARY_EMOJIS, (i) => {
+  const k = i % 3;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 1.5 + (i % 4) * 0.5 };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 20 + (i % 5) * 3, seconds: 600 + (i % 4) * 120 };
+  return { kind: "coins", amount: 4000 + (i % 5) * 500 };
+});
+
+// ---------- +30 mythical (NEU) ----------
+const MYTHICAL_NAMES = [
+  "Mythischer Sturmkolben","Nebel-Turbolader","Schatten-Fahrwerk","Mondrenn-Getriebe","Sonnen-Kupplung",
+  "Sternen-Bremsanlage","Wind-Nockenwelle","Phantom-Auspuff","Traum-Chassis","Feuer-Airbox",
+  "Eis-Kühlmittel","Sturm-Turbokit","Nebel-Reifensatz","Schatten-Motorsteuerung","Mondrenn-Kolben",
+  "Sonnen-Aerokit","Sternen-Kurbelwelle","Wind-Zylinderkopf","Phantom-Kompressor","Traum-Bremskolben",
+  "Feuer-Doppelkupplung","Eis-Doppelturbo","Sturm-Nockenwellenset","Nebel-Karbonchassis","Schatten-Kraftstoffpumpe",
+  "Mondrenn-Airbox","Sonnen-Kolbenpin","Sternen-Fahrwerk","Wind-Schaltmatrix","Phantom-Krone",
+];
+const MYTHICAL_EMOJIS = ["🌪️","🌫️","🌑","🌕","☀️","⭐","🌬️","👻","💭","🔥","🧊","🌟"];
+const MYTHICAL_EXT = gen("mx", "mythical", MYTHICAL_NAMES, MYTHICAL_EMOJIS, (i) => {
+  const k = i % 3;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 3 + (i % 3) * 0.5 };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 25 + (i % 5) * 3, seconds: 900 + (i % 4) * 180 };
+  return { kind: "coins", amount: 8000 + (i % 5) * 1000 };
+});
+
+// ---------- +25 cosmic (NEU) ----------
+const COSMIC_NAMES = [
+  "Kosmischer Kern","Galaxie-Turbolader","Nebula-Fahrwerk","Supernova-Getriebe","Quasar-Kupplung",
+  "Pulsar-Bremsanlage","Meteor-Nockenwelle","Komet-Auspuff","Asteroid-Chassis","Blackhole-Airbox",
+  "Sonnensystem-Reifensatz","Milchstraßen-Motor","Andromeda-Doppelturbo","Orion-Fahrwerkskit",
+  "Antares-Kolben","Sirius-Kurbelwelle","Vega-Zylinderkopf","Rigel-Kompressor","Polaris-Bremskolben",
+  "Aldebaran-Doppelkupplung","Capella-Kraftstoffsystem","Betelgeuse-Aerokit","Deneb-Nockenwellenset",
+  "Arcturus-Karbonchassis","Antimaterie-Kernblock",
+];
+const COSMIC_EMOJIS = ["🌌","🪐","☄️","🌠","🌟","⚛️","🛸","🔭"];
+const COSMIC_EXT = gen("cmx", "cosmic", COSMIC_NAMES, COSMIC_EMOJIS, (i) => {
+  const k = i % 3;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 5 + (i % 3) };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 35 + (i % 5) * 4, seconds: 1200 + (i % 4) * 300 };
+  return { kind: "coins", amount: 20000 + (i % 5) * 2500 };
+});
+
+// ---------- +15 celestial (NEU) ----------
+const CELESTIAL_NAMES = [
+  "Himmels-Zepter","Ur-Motor","Genesis-Chassis","Ewiger Turbolader","Zeitloses Getriebe",
+  "Absoluter Kolben","Prima-Kurbelwelle","Alpha-Fahrwerk","Omega-Airbox","Infinitum-Auspuff",
+  "Astralkraft-Kupplung","Divinum-Bremsanlage","Sanctum-Motorsteuerung","Aeon-Doppelturbo","Empyreum-Krone",
+];
+const CELESTIAL_EMOJIS = ["✨","🕊️","🌟","👼","☄️","💫","🌠"];
+const CELESTIAL_EXT = gen("celx", "celestial", CELESTIAL_NAMES, CELESTIAL_EMOJIS, (i) => {
+  const k = i % 3;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 8 + (i % 4) };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 50 + (i % 4) * 10, seconds: 1800 + (i % 3) * 600 };
+  return { kind: "coins", amount: 75000 + (i % 4) * 15000 };
+});
+
+export const COLLECTIBLES: Collectible[] = [
+  ...COMMON, ...COMMON_EXT,
+  ...UNCOMMON, ...UNCOMMON_EXT,
+  ...RARE, ...RARE_EXT,
+  ...EPIC, ...EPIC_EXT,
+  ...LEGENDARY, ...LEGENDARY_EXT,
+  ...MYTHICAL_EXT,
+  ...COSMIC_EXT,
+  ...CELESTIAL_EXT,
+];
 export const COLLECTIBLES_BY_ID: Record<string, Collectible> = Object.fromEntries(COLLECTIBLES.map((c) => [c.id, c]));
 export const TOTAL_COUNT = COLLECTIBLES.length;
 
-// ---------------- Pakete ----------------
-export type PackType = "starter" | "standard" | "deluxe" | "mythic";
+// ============================================================
+//  Pakete
+// ============================================================
+export type PackType = "starter" | "standard" | "deluxe" | "mythic" | "ultra" | "celestial";
 
 export const PACK_META: Record<PackType, { label: string; emoji: string; color: string; size: number; desc: string }> = {
-  starter:  { label: "Starter-Paket",  emoji: "📦", color: "#9ca3af", size: 3,  desc: "Kleine Kiste mit 3 Items." },
-  standard: { label: "Standard-Kiste", emoji: "🎁", color: "#4ade80", size: 5,  desc: "5 Items, oft ungewöhnlich." },
-  deluxe:   { label: "Deluxe-Truhe",   emoji: "🧰", color: "#c084fc", size: 8,  desc: "8 Items, garantiert selten." },
-  mythic:   { label: "Mythische Kiste", emoji: "🌟", color: "#f6d96a", size: 12, desc: "12 Items, garantiert episch." },
+  starter:   { label: "Starter-Paket",    emoji: "📦", color: "#9ca3af", size: 3,  desc: "Kleine Kiste mit 3 Items." },
+  standard:  { label: "Standard-Kiste",   emoji: "🎁", color: "#4ade80", size: 5,  desc: "5 Items, oft ungewöhnlich." },
+  deluxe:    { label: "Deluxe-Truhe",     emoji: "🧰", color: "#c084fc", size: 8,  desc: "8 Items, garantiert selten." },
+  mythic:    { label: "Mythische Kiste",  emoji: "🌟", color: "#f6d96a", size: 12, desc: "12 Items, garantiert episch." },
+  ultra:     { label: "Ultra-Tresor",     emoji: "💠", color: "#ff6ec7", size: 18, desc: "18 Items, garantiert mythisch, kosmisch möglich." },
+  celestial: { label: "Himmels-Reliquiar",emoji: "🌠", color: "#00f0ff", size: 25, desc: "25 Items, garantiert kosmisch, himmlisch möglich." },
 };
 
-
-// Gewichtung Rarity pro Pakettyp (roulette wheel).
 const WEIGHTS: Record<PackType, Record<Rarity, number>> = {
-  starter:  { common: 75, uncommon: 22, rare: 3,  epic: 0,  legendary: 0 },
-  standard: { common: 45, uncommon: 40, rare: 13, epic: 2,  legendary: 0 },
-  deluxe:   { common: 20, uncommon: 40, rare: 30, epic: 9,  legendary: 1 },
-  mythic:   { common: 5,  uncommon: 20, rare: 40, epic: 30, legendary: 5 },
+  starter:   { common: 75, uncommon: 22, rare: 3,  epic: 0,  legendary: 0, mythical: 0, cosmic: 0, celestial: 0 },
+  standard:  { common: 45, uncommon: 40, rare: 13, epic: 2,  legendary: 0, mythical: 0, cosmic: 0, celestial: 0 },
+  deluxe:    { common: 20, uncommon: 40, rare: 30, epic: 9,  legendary: 1, mythical: 0, cosmic: 0, celestial: 0 },
+  mythic:    { common: 5,  uncommon: 20, rare: 40, epic: 27, legendary: 6, mythical: 2, cosmic: 0, celestial: 0 },
+  ultra:     { common: 0,  uncommon: 8,  rare: 25, epic: 35, legendary: 20,mythical: 10,cosmic: 2, celestial: 0 },
+  celestial: { common: 0,  uncommon: 0,  rare: 10, epic: 25, legendary: 25,mythical: 22,cosmic: 15,celestial: 3 },
 };
 
-// Garantien (mindestens 1 dieser Rarity muss enthalten sein).
 const GUARANTEES: Record<PackType, Rarity | null> = {
   starter: null,
   standard: null,
   deluxe: "rare",
   mythic: "epic",
+  ultra: "mythical",
+  celestial: "cosmic",
 };
 
 const BY_RARITY: Record<Rarity, Collectible[]> = {
@@ -244,6 +458,9 @@ const BY_RARITY: Record<Rarity, Collectible[]> = {
   rare:      COLLECTIBLES.filter((c) => c.rarity === "rare"),
   epic:      COLLECTIBLES.filter((c) => c.rarity === "epic"),
   legendary: COLLECTIBLES.filter((c) => c.rarity === "legendary"),
+  mythical:  COLLECTIBLES.filter((c) => c.rarity === "mythical"),
+  cosmic:    COLLECTIBLES.filter((c) => c.rarity === "cosmic"),
+  celestial: COLLECTIBLES.filter((c) => c.rarity === "celestial"),
 };
 
 function pickRarity(pack: PackType): Rarity {
@@ -259,10 +476,10 @@ function pickRarity(pack: PackType): Rarity {
 
 function pickItem(rarity: Rarity): Collectible {
   const pool = BY_RARITY[rarity];
+  if (pool.length === 0) return BY_RARITY.common[0];
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-/** Öffnet ein Paket — gibt eine Liste Items zurück (kann Duplikate enthalten). */
 export function rollPack(pack: PackType): Collectible[] {
   const size = PACK_META[pack].size;
   const items: Collectible[] = [];
@@ -272,11 +489,14 @@ export function rollPack(pack: PackType): Collectible[] {
   return items;
 }
 
-/** Gewichtete Zufallsauswahl eines Pakettyps für Open-World-Drops. */
 export function rollWorldPackType(): PackType {
   const r = Math.random();
-  if (r < 0.70) return "starter";
-  if (r < 0.92) return "standard";
-  if (r < 0.99) return "deluxe";
-  return "mythic";
+  if (r < 0.60) return "starter";
+  if (r < 0.82) return "standard";
+  if (r < 0.93) return "deluxe";
+  if (r < 0.98) return "mythic";
+  if (r < 0.997) return "ultra";
+  return "celestial";
 }
+
+export const PACK_TYPES: PackType[] = ["starter", "standard", "deluxe", "mythic", "ultra", "celestial"];

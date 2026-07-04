@@ -1,4 +1,4 @@
-// Local coin wallet — no auth, persists in localStorage.
+// Local coin wallet — no auth, persists in localStorage. SSR-safe.
 const KEY = "garage:coins";
 const SLOTS_KEY = "garage:slots";
 const STARTING_COINS = 500;
@@ -6,43 +6,53 @@ const STARTING_SLOTS = 1;
 
 type Listener = (coins: number) => void;
 const listeners = new Set<Listener>();
+const safeLS = () => typeof localStorage !== "undefined" ? localStorage : null;
 
 export function getCoins(): number {
-  const raw = localStorage.getItem(KEY);
+  const ls = safeLS();
+  if (!ls) return STARTING_COINS;
+  const raw = ls.getItem(KEY);
   if (raw === null) {
-    localStorage.setItem(KEY, String(STARTING_COINS));
+    ls.setItem(KEY, String(STARTING_COINS));
     return STARTING_COINS;
   }
   const n = parseInt(raw, 10);
   return Number.isFinite(n) ? n : STARTING_COINS;
 }
 
-function setCoins(n: number) {
-  localStorage.setItem(KEY, String(Math.max(0, Math.round(n))));
+function setCoinsRaw(n: number) {
+  safeLS()?.setItem(KEY, String(Math.max(0, Math.round(n))));
   for (const l of listeners) l(getCoins());
 }
 
 export function addCoins(amount: number) {
-  setCoins(getCoins() + amount);
+  setCoinsRaw(getCoins() + amount);
 }
 
 export function spendCoins(amount: number): boolean {
   const c = getCoins();
   if (c < amount) return false;
-  setCoins(c - amount);
+  setCoinsRaw(c - amount);
   return true;
+}
+
+/** Für Cloud-Sync — überschreibt lokalen Wert. */
+export function setCoinsAbsolute(n: number) {
+  setCoinsRaw(n);
 }
 
 export function subscribeCoins(cb: Listener): () => void {
   listeners.add(cb);
-  return () => listeners.delete(cb);
+  return () => { listeners.delete(cb); };
 }
 
 // ---- garage slots ----
 export function getSlots(): number {
-  const raw = localStorage.getItem(SLOTS_KEY);
+  const ls = safeLS();
+  if (!ls) return STARTING_SLOTS;
+  const raw = ls.getItem(SLOTS_KEY);
   if (raw === null) {
-    localStorage.setItem(SLOTS_KEY, String(STARTING_SLOTS));
+    ls.setItem(SLOTS_KEY, String(STARTING_SLOTS));
     return STARTING_SLOTS;
   }
   const n = parseInt(raw, 10);
@@ -50,12 +60,11 @@ export function getSlots(): number {
 }
 
 export function addSlot() {
-  localStorage.setItem(SLOTS_KEY, String(getSlots() + 1));
+  safeLS()?.setItem(SLOTS_KEY, String(getSlots() + 1));
 }
 
 export function nextSlotPrice(): number {
   const s = getSlots();
-  // Slot 2 = 5000, Slot 3 = 12000, Slot 4 = 20000, Slot 5+ progressively
   if (s === 1) return 5000;
   if (s === 2) return 12000;
   return 12000 + (s - 2) * 8000;

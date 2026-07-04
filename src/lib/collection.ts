@@ -3,10 +3,11 @@ const KEY = "garage:collection";
 type Counts = Record<string, number>;
 type Listener = (counts: Counts) => void;
 const listeners = new Set<Listener>();
+const safeLS = () => typeof localStorage !== "undefined" ? localStorage : null;
 
 export function getCollection(): Counts {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = safeLS()?.getItem(KEY);
     if (!raw) return {};
     const obj = JSON.parse(raw);
     return typeof obj === "object" && obj ? obj : {};
@@ -16,7 +17,7 @@ export function getCollection(): Counts {
 }
 
 function save(c: Counts) {
-  localStorage.setItem(KEY, JSON.stringify(c));
+  safeLS()?.setItem(KEY, JSON.stringify(c));
   for (const l of listeners) l({ ...c });
 }
 
@@ -24,6 +25,11 @@ export function addToCollection(id: string, n = 1) {
   const c = getCollection();
   c[id] = (c[id] ?? 0) + n;
   save(c);
+}
+
+/** Ersetzt die komplette Collection (für Cloud-Sync). */
+export function replaceCollection(c: Counts) {
+  save({ ...c });
 }
 
 export function has(id: string): boolean {
@@ -36,5 +42,5 @@ export function uniqueCount(): number {
 
 export function subscribeCollection(cb: Listener): () => void {
   listeners.add(cb);
-  return () => listeners.delete(cb);
+  return () => { listeners.delete(cb); };
 }

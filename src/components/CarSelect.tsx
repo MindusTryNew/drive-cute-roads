@@ -13,6 +13,7 @@ import {
 import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot } from "@/lib/coins";
 import { isDevMode, setDevMode, subscribeDevMode } from "@/lib/devmode";
 import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
+import { AccountMenu } from "@/components/AccountMenu";
 
 export type CarKey = "roadster" | "suv" | "racer";
 export type Mode = "solo" | "split" | "online";
@@ -78,6 +79,7 @@ export function CarSelect({
   const [slots, setSlots] = useState(getSlots());
   const [dev, setDev] = useState(isDevMode());
   const [showRedeem, setShowRedeem] = useState(false);
+  const [showAccount, setShowAccount] = useState(false);
 
   useEffect(() => {
     setCustomCars(listCars());
@@ -164,6 +166,8 @@ export function CarSelect({
             )}
             <button onClick={() => setShowRedeem(true)}
               className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🎁 Code</button>
+            <button onClick={() => setShowAccount(true)}
+              className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">☁️ Konto</button>
             {dev ? (
               <span className="rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-sm font-mono">⚡ DEV</span>
             ) : (
@@ -186,6 +190,7 @@ export function CarSelect({
           </div>
         </header>
         {showRedeem && <RedeemCodeDialog onClose={() => setShowRedeem(false)} />}
+        {showAccount && <AccountMenu onClose={() => setShowAccount(false)} />}
 
         <section className="mt-12">
           <h2 className="text-4xl font-bold tracking-tight md:text-5xl">{headline ?? "Wähle dein Fahrzeug."}</h2>
