@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getInventory, consumePack, subscribeInventory } from "@/lib/inventory";
-import { PACK_META, rollPack, type PackType, type Collectible } from "@/lib/collectibles";
+import { PACK_META, PACK_TYPES, rollPack, type PackType, type Collectible } from "@/lib/collectibles";
 import { addToCollection } from "@/lib/collection";
 import { addCoins } from "@/lib/coins";
 import { PackOpeningDialog } from "@/components/PackOpeningDialog";
@@ -11,7 +11,7 @@ export function Inventory({ onBack }: { onBack: () => void }) {
 
   useEffect(() => subscribeInventory(setPacks), []);
 
-  const counts: Record<PackType, number> = { starter: 0, standard: 0, deluxe: 0, mythic: 0 };
+  const counts: Record<PackType, number> = Object.fromEntries(PACK_TYPES.map((p) => [p, 0])) as Record<PackType, number>;
   packs.forEach((p) => counts[p]++);
 
   const openOne = (p: PackType) => {
@@ -43,7 +43,7 @@ export function Inventory({ onBack }: { onBack: () => void }) {
         )}
 
         <div className="grid gap-4 sm:grid-cols-2">
-          {(Object.keys(counts) as PackType[]).filter((p) => counts[p] > 0).map((p) => {
+          {PACK_TYPES.filter((p) => counts[p] > 0).map((p) => {
             const meta = PACK_META[p];
             return (
               <div key={p} className="rounded-xl border bg-card/70 p-5" style={{ borderColor: meta.color + "55" }}>
