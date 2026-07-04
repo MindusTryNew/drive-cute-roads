@@ -65,7 +65,7 @@ export async function syncUp(): Promise<{ ok: boolean; error?: string }> {
   const snap = collectSnapshot();
   const { error } = await supabase
     .from("save_states")
-    .upsert({ user_id: uid, data: snap as unknown as Record<string, unknown> }, { onConflict: "user_id" });
+    .upsert({ user_id: uid, data: JSON.parse(JSON.stringify(snap)) }, { onConflict: "user_id" });
   if (error) return { ok: false, error: error.message };
   return { ok: true };
 }
