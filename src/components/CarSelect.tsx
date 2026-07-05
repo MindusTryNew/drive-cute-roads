@@ -14,6 +14,7 @@ import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot 
 import { isDevMode, setDevMode, subscribeDevMode } from "@/lib/devmode";
 import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 import { AccountMenu } from "@/components/AccountMenu";
+import { RegionPanel } from "@/components/RegionPanel";
 
 export type CarKey = "roadster" | "suv" | "racer";
 export type Mode = "solo" | "split" | "online";
@@ -51,6 +52,7 @@ export function CarSelect({
   onOpenMapEditor,
   onOpenInventory,
   onOpenCatalog,
+  onOpenBundleShop,
   mode = "solo",
   onModeChange,
   headline,
@@ -66,6 +68,7 @@ export function CarSelect({
   onOpenMapEditor?: () => void;
   onOpenInventory?: () => void;
   onOpenCatalog?: () => void;
+  onOpenBundleShop?: () => void;
   mode?: Mode;
   onModeChange?: (m: Mode) => void;
   headline?: string;
@@ -80,6 +83,7 @@ export function CarSelect({
   const [dev, setDev] = useState(isDevMode());
   const [showRedeem, setShowRedeem] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
+  const [showRegions, setShowRegions] = useState(false);
 
   useEffect(() => {
     setCustomCars(listCars());
@@ -164,6 +168,12 @@ export function CarSelect({
               <button onClick={onOpenCatalog}
                 className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">📖 Katalog</button>
             )}
+            {onOpenBundleShop && (
+              <button onClick={onOpenBundleShop}
+                className="rounded-lg border border-primary/60 bg-primary/10 px-3 py-1.5 text-sm hover:bg-primary/20">🎁 Bundles</button>
+            )}
+            <button onClick={() => setShowRegions(true)}
+              className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🗺️ Regionen</button>
             <button onClick={() => setShowRedeem(true)}
               className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🎁 Code</button>
             <button onClick={() => setShowAccount(true)}
@@ -191,6 +201,7 @@ export function CarSelect({
         </header>
         {showRedeem && <RedeemCodeDialog onClose={() => setShowRedeem(false)} />}
         {showAccount && <AccountMenu onClose={() => setShowAccount(false)} />}
+        {showRegions && <RegionPanel onClose={() => setShowRegions(false)} />}
 
         <section className="mt-12">
           <h2 className="text-4xl font-bold tracking-tight md:text-5xl">{headline ?? "Wähle dein Fahrzeug."}</h2>

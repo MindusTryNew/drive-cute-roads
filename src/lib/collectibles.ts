@@ -407,6 +407,56 @@ const CELESTIAL_EXT = gen("celx", "celestial", CELESTIAL_NAMES, CELESTIAL_EMOJIS
   return { kind: "coins", amount: 75000 + (i % 4) * 15000 };
 });
 
+// ---------- +150 neue Sammelitems (6 Themen-Serien à 25) ----------
+const AURORA_NAMES = Array.from({ length: 25 }, (_, i) => `Aurora ${["Fragment","Kristall","Splitter","Ring","Puls","Prisma","Schleier","Nebel","Funke","Aura","Welle","Kern","Staub","Feder","Bogen","Herz","Krone","Zunge","Schild","Flamme","Auge","Rune","Kelch","Schlange","Stein"][i]}`);
+const AURORA = gen("aur", "epic", AURORA_NAMES, ["🌌","💚","💙","💜","✨"], (i) => {
+  const k = i % 3;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 0.4 + (i % 3) * 0.1 };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 10 + (i % 5), seconds: 300 + (i % 4) * 60 };
+  return { kind: "coins", amount: 500 + (i % 6) * 80 };
+}, "Aurora-Serie: ");
+
+const DEEPSEA_NAMES = Array.from({ length: 25 }, (_, i) => `Tiefsee-${["Perle","Koralle","Muschel","Schuppe","Zahn","Auge","Flosse","Anker","Netz","Kompass","Fossil","Ring","Kristall","Schatz","Kette","Amulett","Krug","Kelch","Amphore","Skarabäus","Runenstein","Sextant","Fernrohr","Steuerrad","Truhe"][i]}`);
+const DEEPSEA = gen("dsea", "rare", DEEPSEA_NAMES, ["🐚","🪸","🐟","⚓","🧭","🔱","🦑","🐙"], (i) => {
+  const k = i % 3;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 0.2 + (i % 3) * 0.1 };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 4 + (i % 4), seconds: 180 + (i % 4) * 60 };
+  return { kind: "coins", amount: 200 + (i % 6) * 50 };
+}, "Tiefsee-Serie: ");
+
+const CHROME_NAMES = Array.from({ length: 25 }, (_, i) => `Chrom-${["Flügel","Feder","Schild","Klinge","Speer","Bogen","Ring","Krone","Herz","Auge","Zahn","Kralle","Griff","Kette","Anhänger","Hammer","Amboss","Zirkel","Schlüssel","Schloss","Rune","Sigill","Talisman","Stern","Kompass"][i]}`);
+const CHROME = gen("chr", "uncommon", CHROME_NAMES, ["🪽","⚔️","🛡️","🔱","👑","💍","🗝️","⭐"], (i) => {
+  const k = i % 4;
+  if (k === 0) return { kind: "coins", amount: 60 + (i % 5) * 20 };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 3 + (i % 3), seconds: 60 + (i % 4) * 30 };
+  if (k === 2) return { kind: "cosmetic" };
+  return { kind: "perm", stat: STATS[i % 4], pct: 0.1 };
+}, "Chrom-Serie: ");
+
+const NEON_NAMES = Array.from({ length: 25 }, (_, i) => `Neon-${["Chip","Modul","Kern","Kabel","Widerstand","Diode","LED","Platine","Prozessor","Speicher","Kondensator","Spule","Transistor","Resonator","Emitter","Sensor","Antenne","Relais","Schalter","Display","Konsole","Terminal","Netzwerk","Server","Kristall"][i]}`);
+const NEON = gen("neo", "epic", NEON_NAMES, ["💠","💻","🔌","⚡","🎮","📟","📡","🖥️"], (i) => {
+  const k = i % 3;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 0.5 + (i % 3) * 0.15 };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 12 + (i % 5), seconds: 360 + (i % 4) * 60 };
+  return { kind: "coins", amount: 700 + (i % 5) * 100 };
+}, "Neon-Serie: ");
+
+const VOLCANIC_NAMES = Array.from({ length: 25 }, (_, i) => `Vulkan-${["Ascheklumpen","Obsidian","Basaltbrocken","Lavatropfen","Feuerstein","Magmakern","Glutrune","Flammenring","Rauchsplitter","Kohlekristall","Schwefelstein","Feuerauge","Glutklaue","Lavaperle","Aschekern","Schlackenstück","Rissstein","Berserkerherz","Drachenzahn","Salamanderei","Vulkantropfen","Flammenschuppe","Glutfeder","Aschekrone","Lavatorc"][i]}`);
+const VOLCANIC = gen("vol", "legendary", VOLCANIC_NAMES, ["🌋","🔥","🪨","🖤","⚫","🟥","♨️"], (i) => {
+  const k = i % 3;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 1.5 + (i % 3) * 0.4 };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 20 + (i % 5) * 3, seconds: 600 + (i % 4) * 120 };
+  return { kind: "coins", amount: 4500 + (i % 5) * 500 };
+}, "Vulkan-Serie: ");
+
+const STORM_NAMES = Array.from({ length: 25 }, (_, i) => `Sturm-${["Blitz","Donner","Wolke","Regen","Hagel","Wind","Auge","Tornado","Wirbel","Kraft","Puls","Welle","Bogen","Zorn","Ruf","Faust","Herz","Klaue","Zahn","Krone","Speer","Klinge","Schild","Ring","Kern"][i]}`);
+const STORM = gen("sto", "mythical", STORM_NAMES, ["⛈️","🌩️","⚡","🌪️","💨","☁️","🌀"], (i) => {
+  const k = i % 3;
+  if (k === 0) return { kind: "perm", stat: STATS[i % 4], pct: 3 + (i % 3) * 0.7 };
+  if (k === 1) return { kind: "temp", stat: STATS[i % 4], pct: 25 + (i % 5) * 4, seconds: 900 + (i % 4) * 180 };
+  return { kind: "coins", amount: 9000 + (i % 5) * 1200 };
+}, "Sturm-Serie: ");
+
 export const COLLECTIBLES: Collectible[] = [
   ...COMMON, ...COMMON_EXT,
   ...UNCOMMON, ...UNCOMMON_EXT,
@@ -416,6 +466,7 @@ export const COLLECTIBLES: Collectible[] = [
   ...MYTHICAL_EXT,
   ...COSMIC_EXT,
   ...CELESTIAL_EXT,
+  ...AURORA, ...DEEPSEA, ...CHROME, ...NEON, ...VOLCANIC, ...STORM,
 ];
 export const COLLECTIBLES_BY_ID: Record<string, Collectible> = Object.fromEntries(COLLECTIBLES.map((c) => [c.id, c]));
 export const TOTAL_COUNT = COLLECTIBLES.length;

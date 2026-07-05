@@ -11,6 +11,7 @@ import { TutorialScreen } from "@/components/TutorialScreen";
 import { MapEditor } from "@/components/MapEditor";
 import { Inventory } from "@/components/Inventory";
 import { CollectionCatalog } from "@/components/CollectionCatalog";
+import { BundleShop } from "@/components/BundleShop";
 import { presetToSpec, customToSpec, type CarSpec } from "@/lib/car-spec";
 import type { CustomCar } from "@/lib/garage";
 
@@ -34,6 +35,7 @@ type View =
   | { kind: "map-editor" }
   | { kind: "inventory" }
   | { kind: "catalog" }
+  | { kind: "bundles" }
   | { kind: "pick-p2"; spec1: CarSpec }
   | { kind: "lobby"; spec: CarSpec }
   | { kind: "sim-solo"; spec: CarSpec }
@@ -95,6 +97,9 @@ function Index() {
   if (view.kind === "catalog") {
     return <CollectionCatalog onBack={() => setView({ kind: "garage" })} />;
   }
+  if (view.kind === "bundles") {
+    return <BundleShop onBack={() => setView({ kind: "garage" })} />;
+  }
   if (view.kind === "pick-p2") {
     return (
       <CarSelect
@@ -120,6 +125,7 @@ function Index() {
       onOpenMapEditor={() => setView({ kind: "map-editor" })}
       onOpenInventory={() => setView({ kind: "inventory" })}
       onOpenCatalog={() => setView({ kind: "catalog" })}
+      onOpenBundleShop={() => setView({ kind: "bundles" })}
       onSelect={(sel) => {
         const spec = specOf(sel);
         if (mode === "solo") setView({ kind: "sim-solo", spec });
