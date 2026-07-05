@@ -5,6 +5,34 @@ import { syncUp, syncDown } from "@/lib/save-sync";
 
 type Mode = "signin" | "signup";
 
+function friendly(err: unknown): string {
+  const m = err instanceof Error ? err.message : String(err ?? "");
+  const lower = m.toLowerCase();
+  if (lower.includes("invalid login") || lower.includes("invalid credentials"))
+    return "E-Mail oder Passwort falsch.";
+  if (lower.includes("already registered") || lower.includes("user already"))
+    return "Diese E-Mail ist bereits registriert. Bitte melde dich an.";
+  if (lower.includes("email not confirmed"))
+    return "E-Mail noch nicht bestätigt. Prüfe dein Postfach.";
+  if (lower.includes("password") && (lower.includes("weak") || lower.includes("short") || lower.includes("6")))
+    return "Passwort zu schwach — bitte mindestens 6 Zeichen.";
+  if (lower.includes("rate limit") || lower.includes("too many"))
+    return "Zu viele Versuche. Bitte kurz warten.";
+  if (lower.includes("network") || lower.includes("failed to fetch"))
+    return "Netzwerkproblem. Prüfe deine Verbindung.";
+  return m || "Unbekannter Fehler.";
+}
+
+function validate(email: string, password: string): string | null {
+  const e = email.trim();
+  if (!e) return "Bitte E-Mail eingeben.";
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) return "Bitte gültige E-Mail eingeben.";
+  if (!password) return "Bitte Passwort eingeben.";
+  if (password.length < 6) return "Passwort mindestens 6 Zeichen.";
+  if (password.includes(" ")) return "Passwort darf keine Leerzeichen enthalten.";
+  return null;
+}
+
 export function AccountMenu({ onClose }: { onClose: () => void }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -12,6 +40,7 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
   const [busy, setBusy] = useState(false);
   const [user, setUser] = useState<{ email?: string | null } | null>(null);
   const [lastSync, setLastSync] = useState<string | null>(null);
+  const [localError, setLocalError] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setUser(data.user ? { email: data.user.email } : null));
@@ -22,24 +51,36 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
   }, []);
 
   const handleSubmit = async () => {
-    if (!email.trim() || !password.trim()) { toast.error("E-Mail und Passwort nötig."); return; }
+    setLocalError(null);
+    const v = validate(email, password);
+    if (v) { setLocalError(v); return; }
     setBusy(true);
     try {
       if (mode === "signup") {
         const redirect = typeof window !== "undefined" ? window.location.origin : undefined;
-        const { error } = await supabase.auth.signUp({
-          email, password,
+        const { data, error } = await supabase.auth.signUp({
+          email: email.trim(), password,
           options: { emailRedirectTo: redirect },
         });
         if (error) throw error;
-        toast.success("Konto erstellt! Bitte prüfe ggf. dein E-Mail-Postfach.");
+        if (data.session) {
+          toast.success("Konto erstellt und angemeldet!");
+        } else {
+          // Auto-Confirm aktiv → sofort einloggen
+          const { error: e2 } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
+          if (e2) throw e2;
+          toast.success("Konto erstellt und angemeldet!");
+        }
       } else {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
         if (error) throw error;
         toast.success("Angemeldet!");
       }
+      setPassword("");
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Fehler bei der Anmeldung.");
+      const msg = friendly(e);
+      setLocalError(msg);
+      toast.error(msg);
     } finally { setBusy(false); }
   };
 
@@ -101,28 +142,37 @@ export function AccountMenu({ onClose }: { onClose: () => void }) {
             </p>
             <div className="flex rounded-lg border p-0.5">
               <button
-                onClick={() => setMode("signin")}
+                onClick={() => { setMode("signin"); setLocalError(null); }}
                 className={`flex-1 rounded-md py-1.5 text-sm ${mode === "signin" ? "bg-primary/20 font-bold" : ""}`}
               >Anmelden</button>
               <button
-                onClick={() => setMode("signup")}
+                onClick={() => { setMode("signup"); setLocalError(null); }}
                 className={`flex-1 rounded-md py-1.5 text-sm ${mode === "signup" ? "bg-primary/20 font-bold" : ""}`}
               >Registrieren</button>
             </div>
             <input
               type="email"
+              autoComplete="email"
               placeholder="E-Mail"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => { setEmail(e.target.value); setLocalError(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
               className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
             <input
               type="password"
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
               placeholder="Passwort (min. 6 Zeichen)"
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); setLocalError(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
               className="w-full rounded-lg border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
+            {localError && (
+              <p className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                {localError}
+              </p>
+            )}
             <button onClick={handleSubmit} disabled={busy}
               className="w-full rounded-lg border-2 border-primary bg-primary/10 py-2 font-bold hover:bg-primary/20 disabled:opacity-40">
               {busy ? "..." : mode === "signin" ? "Anmelden" : "Konto erstellen"}

@@ -29,6 +29,7 @@ import { MobileControls } from "@/components/MobileControls";
 import { getPermBonuses, subscribePermBonuses } from "@/lib/perm-bonuses";
 import { addPack } from "@/lib/inventory";
 import { rollWorldPackType, PACK_META, type PackType } from "@/lib/collectibles";
+import { REGIONS_BY_ID, getActiveRegion } from "@/lib/regions";
 
 type Mode =
   | { kind: "solo" }
@@ -65,6 +66,15 @@ export function Simulator({
   const [rotationToast, setRotationToast] = useState<string | null>(null);
   const [headingUp, setHeadingUp] = useState(true);
   const [mapZoom, setMapZoom] = useState(1); // 0.5, 1, 2
+  const [mapFull, setMapFull] = useState(false);
+  const pausedRef = useRef(false);
+  useEffect(() => { pausedRef.current = mapFull; }, [mapFull]);
+  useEffect(() => {
+    if (!mapFull) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMapFull(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [mapFull]);
 
   useEffect(() => {
     // Perm-Boni-Cache initialisieren, bevor physicsFromTuning läuft.
@@ -97,8 +107,9 @@ export function Simulator({
     // Map-Mods (installiert) in die Szene mounten
     mountMapMods(scene, world, preset.shadows);
 
+    const spawn = REGIONS_BY_ID[getActiveRegion()]?.spawn ?? { x: 60, z: 0 };
     const p1 = createPlayer(spec, scene, preset.shadows);
-    p1.group.position.set(60, 0, 0);
+    p1.group.position.set(spawn.x, 0, spawn.z);
     p1.group.rotation.y = Math.PI / 2;
 
     let p2: PlayerRefs | null = null;
@@ -396,17 +407,20 @@ export function Simulator({
       p1.headlight.intensity = 1.5 + night * 4;
       if (p2) p2.headlight.intensity = 1.5 + night * 4;
 
-      updatePlayer(p1, P1, phys1, bias1, in1, dt);
-      if (p2) updatePlayer(p2, P2, phys2, bias2, in2, dt);
+      const paused = pausedRef.current;
+      if (!paused) {
+        updatePlayer(p1, P1, phys1, bias1, in1, dt);
+        if (p2) updatePlayer(p2, P2, phys2, bias2, in2, dt);
 
-      for (const r of remotes.values()) {
-        r.group.position.x += (r.target.x - r.group.position.x) * 0.2;
-        r.group.position.z += (r.target.z - r.group.position.z) * 0.2;
-        r.group.position.y = world.groundHeightAt(r.group.position.x, r.group.position.z);
-        let dr = r.target.ry - r.group.rotation.y;
-        while (dr > Math.PI) dr -= Math.PI * 2;
-        while (dr < -Math.PI) dr += Math.PI * 2;
-        r.group.rotation.y += dr * 0.2;
+        for (const r of remotes.values()) {
+          r.group.position.x += (r.target.x - r.group.position.x) * 0.2;
+          r.group.position.z += (r.target.z - r.group.position.z) * 0.2;
+          r.group.position.y = world.groundHeightAt(r.group.position.x, r.group.position.z);
+          let dr = r.target.ry - r.group.rotation.y;
+          while (dr > Math.PI) dr -= Math.PI * 2;
+          while (dr < -Math.PI) dr += Math.PI * 2;
+          r.group.rotation.y += dr * 0.2;
+        }
       }
 
       const kmh1 = Math.abs(p1.velocity) * 380;
@@ -836,12 +850,19 @@ export function Simulator({
               </div>
             )}
             <div className="rounded-2xl border bg-card/80 p-2 backdrop-blur-md" style={{ boxShadow: "var(--hud-glow)" }}>
-              <canvas ref={minimapRef} className="block rounded-full" style={{ width: 200, height: 200 }} />
+              <canvas
+                ref={minimapRef}
+                onClick={() => setMapFull(true)}
+                className="block cursor-pointer rounded-full"
+                style={{ width: 200, height: 200 }}
+              />
               <div className="mt-1 flex items-center justify-between gap-1 px-1">
                 <button onClick={() => setHeadingUp((v) => !v)}
                   className="pointer-events-auto rounded border px-1.5 py-0.5 font-mono text-[9px] hover:border-primary">
                   {headingUp ? "HDG↑" : "N↑"}
                 </button>
+                <button onClick={() => setMapFull(true)}
+                  className="pointer-events-auto rounded border px-1.5 py-0.5 font-mono text-[9px] hover:border-primary">⛶</button>
                 <div className="flex gap-1">
                   <button onClick={() => setMapZoom((z) => Math.max(0.5, z / 2))}
                     className="pointer-events-auto rounded border px-1.5 py-0.5 font-mono text-[9px] hover:border-primary">−</button>
@@ -899,6 +920,41 @@ export function Simulator({
       </div>
 
       {showSettings && <QualitySettings fps={fps} onClose={() => setShowSettings(false)} />}
+      {mapFull && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+          <button
+            onClick={() => setMapFull(false)}
+            className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full border-2 border-white bg-black/60 text-2xl text-white hover:bg-black/80"
+            aria-label="Karte schließen"
+          >×</button>
+          <div className="absolute top-4 left-4 rounded-lg border bg-card/80 px-3 py-2 font-mono text-xs backdrop-blur-md">
+            ⏸ Pausiert · Tippe/klicke die Karte für Ziel
+          </div>
+          <canvas
+            width={200}
+            height={200}
+            ref={(el) => {
+              if (!el || !minimapRef.current) return;
+              const src = minimapRef.current;
+              const ctx = el.getContext("2d");
+              if (!ctx) return;
+              const draw = () => {
+                if (!minimapRef.current) return;
+                ctx.clearRect(0, 0, 200, 200);
+                ctx.drawImage(minimapRef.current, 0, 0);
+              };
+              let raf = 0;
+              const loop = () => { draw(); raf = requestAnimationFrame(loop); };
+              loop();
+              el.dataset.raf = String(raf);
+              // Cleanup handled implicitly at unmount (raf paused when overlay closes).
+              void src;
+            }}
+            className="rounded-2xl border-2 border-primary shadow-2xl"
+            style={{ width: "min(90vw, 90vh)", height: "min(90vw, 90vh)", imageRendering: "pixelated" }}
+          />
+        </div>
+      )}
     </div>
   );
 }
