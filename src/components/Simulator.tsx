@@ -920,6 +920,41 @@ export function Simulator({
       </div>
 
       {showSettings && <QualitySettings fps={fps} onClose={() => setShowSettings(false)} />}
+      {mapFull && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-sm p-4">
+          <button
+            onClick={() => setMapFull(false)}
+            className="absolute right-4 top-4 flex h-12 w-12 items-center justify-center rounded-full border-2 border-white bg-black/60 text-2xl text-white hover:bg-black/80"
+            aria-label="Karte schließen"
+          >×</button>
+          <div className="absolute top-4 left-4 rounded-lg border bg-card/80 px-3 py-2 font-mono text-xs backdrop-blur-md">
+            ⏸ Pausiert · Tippe/klicke die Karte für Ziel
+          </div>
+          <canvas
+            width={200}
+            height={200}
+            ref={(el) => {
+              if (!el || !minimapRef.current) return;
+              const src = minimapRef.current;
+              const ctx = el.getContext("2d");
+              if (!ctx) return;
+              const draw = () => {
+                if (!minimapRef.current) return;
+                ctx.clearRect(0, 0, 200, 200);
+                ctx.drawImage(minimapRef.current, 0, 0);
+              };
+              let raf = 0;
+              const loop = () => { draw(); raf = requestAnimationFrame(loop); };
+              loop();
+              el.dataset.raf = String(raf);
+              // Cleanup handled implicitly at unmount (raf paused when overlay closes).
+              void src;
+            }}
+            className="rounded-2xl border-2 border-primary shadow-2xl"
+            style={{ width: "min(90vw, 90vh)", height: "min(90vw, 90vh)", imageRendering: "pixelated" }}
+          />
+        </div>
+      )}
     </div>
   );
 }
