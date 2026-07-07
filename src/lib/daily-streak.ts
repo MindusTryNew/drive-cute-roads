@@ -1,5 +1,6 @@
 // Daily-Login-Streak. Belohnungen wachsen mit der Serie, Loop bei Tag 30.
 import { addCoins } from "./coins";
+import type { PackType } from "./collectibles";
 import { addPack } from "./inventory";
 import { addToCollection } from "./collection";
 import { PRESETS } from "./preset-cars";
