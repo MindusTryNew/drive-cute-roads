@@ -10,11 +10,15 @@ import {
   downloadCar,
   type CustomCar,
 } from "@/lib/garage";
-import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot } from "@/lib/coins";
+import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot, addCoins, setCoinsAbsolute } from "@/lib/coins";
 import { isDevMode, setDevMode, subscribeDevMode } from "@/lib/devmode";
 import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 import { AccountMenu } from "@/components/AccountMenu";
 import { RegionPanel } from "@/components/RegionPanel";
+import { DailyRewardDialog } from "@/components/DailyRewardDialog";
+import { PrestigePanel } from "@/components/PrestigePanel";
+import { readState as readDailyState } from "@/lib/daily-streak";
+import { getLevel, getPoints, subscribePrestige } from "@/lib/prestige";
 
 export type CarKey = "roadster" | "suv" | "racer";
 export type Mode = "solo" | "split" | "online";
