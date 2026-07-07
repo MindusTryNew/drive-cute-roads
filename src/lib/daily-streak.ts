@@ -28,11 +28,10 @@ function daysBetween(a: string, b: string): number {
 /** Belohnung für Tag N (1..30, danach loop). */
 export function rewardForDay(day: number): DailyReward {
   const d = ((day - 1) % 30) + 1;
-  if (d === 7)  return { kind: "pack", packId: "medium", label: "🎁 Standard-Bundle" };
-  if (d === 14) return { kind: "pack", packId: "large",  label: "🎁 Premium-Bundle" };
-  if (d === 21) return { kind: "pack", packId: "small",  label: "🎁 Sammelpaket" };
+  if (d === 7)  return { kind: "pack", packId: "standard", label: "🎁 Standard-Bundle" };
+  if (d === 14) return { kind: "pack", packId: "deluxe",   label: "🎁 Deluxe-Bundle" };
+  if (d === 21) return { kind: "pack", packId: "mythic",   label: "🎁 Mythic-Bundle" };
   if (d === 30) {
-    // zufälliges Legendary/Epic-Preset deterministisch am 30-Tag-Zyklus
     const pool = PRESETS.filter((p) => p.rarity === "legendary" || p.rarity === "epic");
     const idx = day % pool.length;
     return { kind: "car", presetKey: pool[idx].key, label: `🏆 ${pool[idx].name}` };
