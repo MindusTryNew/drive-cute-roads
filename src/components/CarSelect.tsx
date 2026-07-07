@@ -89,12 +89,24 @@ export function CarSelect({
   const [showAccount, setShowAccount] = useState(false);
   const [showRegions, setShowRegions] = useState(false);
 
+  const [showDaily, setShowDaily] = useState(false);
+  const [showPrestige, setShowPrestige] = useState(false);
+  const [prestigeLevel, setPrestigeLevel] = useState(getLevel());
+  const [prestigePoints, setPrestigePoints] = useState(getPoints());
+
   useEffect(() => {
     setCustomCars(listCars());
     setRemaining(remainingToday());
     const un = subscribeCoins(setCoins);
     const un2 = subscribeDevMode(setDev);
-    return () => { un(); un2(); };
+    const un3 = subscribePrestige(() => { setPrestigeLevel(getLevel()); setPrestigePoints(getPoints()); });
+    // Daily-Popup: nur einmal pro Session, wenn heute noch nicht abgeholt
+    const s = readDailyState();
+    if (s.canClaim) {
+      const t = window.setTimeout(() => setShowDaily(true), 600);
+      return () => { un(); un2(); un3(); window.clearTimeout(t); };
+    }
+    return () => { un(); un2(); un3(); };
   }, []);
 
   const refresh = () => {
