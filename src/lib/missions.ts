@@ -142,6 +142,7 @@ export function completeMission(id: string) {
   const m = MISSIONS.find((x) => x.id === id);
   if (m) {
     addCoins(m.reward);
+    awardXp(Math.max(50, Math.round(m.reward / 20)));
     if (m.packReward) addPack(m.packReward);
   }
   if (getActiveMissionId() === id) setActiveMissionId(null);
