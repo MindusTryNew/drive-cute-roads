@@ -44,8 +44,8 @@ export function BundleShop({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <main className="min-h-screen w-screen overflow-y-auto p-6">
-      <div className="mx-auto max-w-5xl">
+    <main className="h-screen w-screen overflow-y-auto overscroll-contain p-6 pb-32">
+      <div className="mx-auto max-w-5xl pb-16">
         <header className="flex items-center justify-between">
           <div>
             <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Bundle-Shop</p>
