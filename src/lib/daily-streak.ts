@@ -16,7 +16,7 @@ const safeLS = () => (typeof localStorage !== "undefined" ? localStorage : null)
 
 export type DailyReward =
   | { kind: "coins"; amount: number; label: string }
-  | { kind: "pack"; packId: string; label: string }
+  | { kind: "pack"; packId: PackType; label: string }
   | { kind: "car"; presetKey: string; label: string };
 
 function todayKey(): string { return new Date().toISOString().slice(0, 10); }
