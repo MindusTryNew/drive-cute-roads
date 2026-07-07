@@ -23,8 +23,13 @@ function save(c: Counts) {
 
 export function addToCollection(id: string, n = 1) {
   const c = getCollection();
+  const wasNew = !c[id];
   c[id] = (c[id] ?? 0) + n;
   save(c);
+  if (n > 0) {
+    // XP: neues Item = 40 XP, Duplikat = 8 XP
+    import("./prestige").then(({ awardXp }) => awardXp(wasNew ? 40 : 8 * n));
+  }
 }
 
 /** Ersetzt die komplette Collection (für Cloud-Sync). */
