@@ -1,5 +1,6 @@
 // Missions-Katalog + Rotation. Alle 2 Minuten wechselt der aktive Pool.
 import { addCoins } from "./coins";
+import { awardXp } from "./prestige";
 import { addPack } from "./inventory";
 import type { PackType } from "./collectibles";
 
@@ -141,6 +142,7 @@ export function completeMission(id: string) {
   const m = MISSIONS.find((x) => x.id === id);
   if (m) {
     addCoins(m.reward);
+    awardXp(Math.max(50, Math.round(m.reward / 20)));
     if (m.packReward) addPack(m.packReward);
   }
   if (getActiveMissionId() === id) setActiveMissionId(null);
