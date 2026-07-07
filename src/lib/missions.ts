@@ -1,5 +1,6 @@
 // Missions-Katalog + Rotation. Alle 2 Minuten wechselt der aktive Pool.
 import { addCoins } from "./coins";
+import { awardXp } from "./prestige";
 import { addPack } from "./inventory";
 import type { PackType } from "./collectibles";
 
