@@ -194,6 +194,12 @@ export function CarSelect({
               className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🎁 Code</button>
             <button onClick={() => setShowAccount(true)}
               className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">☁️ Konto</button>
+            <button onClick={() => setShowDaily(true)}
+              className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-3 py-1.5 text-sm hover:bg-orange-500/20">🔥 Daily</button>
+            <button onClick={() => setShowPrestige(true)}
+              className="rounded-lg border border-primary/60 bg-primary/10 px-3 py-1.5 text-sm hover:bg-primary/20">
+              ✨ Lv {prestigeLevel}{prestigePoints > 0 ? ` · ${prestigePoints}P` : ""}
+            </button>
             {dev ? (
               <span className="rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-sm font-mono">⚡ DEV</span>
             ) : (
@@ -215,9 +221,33 @@ export function CarSelect({
             </div>
           </div>
         </header>
+
+        {dev && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
+            <span className="font-mono text-[10px] uppercase tracking-widest text-primary">⚡ DevMode</span>
+            <span className="text-xs text-muted-foreground">Coins geben:</span>
+            {[1000, 10000, 100000, 1000000].map((n) => (
+              <button key={n} onClick={() => { addCoins(n); toast.success(`+${n.toLocaleString()} 🪙`); }}
+                className="rounded border border-primary/40 px-2 py-1 font-mono text-xs hover:bg-primary/10">
+                +{n.toLocaleString()}
+              </button>
+            ))}
+            <button onClick={() => { setCoinsAbsolute(500); toast.info("Coins auf 500 zurückgesetzt"); }}
+              className="rounded border border-destructive/40 px-2 py-1 font-mono text-xs text-destructive hover:bg-destructive/10">
+              Reset (500)
+            </button>
+            <button onClick={() => { setDevMode(false); toast.info("DevMode deaktiviert"); }}
+              className="ml-auto rounded border px-2 py-1 font-mono text-xs hover:border-primary">
+              DevMode aus
+            </button>
+          </div>
+        )}
+
         {showRedeem && <RedeemCodeDialog onClose={() => setShowRedeem(false)} />}
         {showAccount && <AccountMenu onClose={() => setShowAccount(false)} />}
         {showRegions && <RegionPanel onClose={() => setShowRegions(false)} />}
+        {showDaily && <DailyRewardDialog onClose={() => setShowDaily(false)} />}
+        {showPrestige && <PrestigePanel onClose={() => setShowPrestige(false)} />}
 
         <section className="mt-12">
           <h2 className="text-4xl font-bold tracking-tight md:text-5xl">{headline ?? "Wähle dein Fahrzeug."}</h2>
