@@ -1,59 +1,56 @@
+## 1. Bundle-Shop Scroll-Bug
 
-## Ziel
-Großes Content- und Fix-Update: mehr Sammelitems, funktionierendes Konto, Daily-Bundle-Shop mit 25 neuen Autos, 6 freischaltbare Regionen und eine Vollbild-Minimap.
+`src/components/BundleShop.tsx`: `<main>` nutzt `min-h-screen overflow-y-auto`. Auf Mobil greift der Scroll-Container nicht sauber (Höhe unbegrenzt → äußeres `<html>` scrollt, aber der Header-Layout-Wrapper blockt). Fix:
 
-## 1. Account-System reparieren (Registrierung/Login schlägt fehl)
-- `AccountMenu.tsx` prüft aktuell nur "email + password nicht leer". Ursache der Fehler ist meist Auto-Confirm aus + fehlender Redirect + Passwort-HIBP.
-- Fix:
-  - `auto_confirm_email = true` per `configure_auth` setzen (Sofort-Login ohne Mail-Bestätigung, für Spiel gewünscht).
-  - Passwort clientseitig prüfen (min. 6 Zeichen, keine Leerzeichen), E-Mail per Zod validieren.
-  - Konkrete Fehlermeldungen anzeigen (invalid_credentials, user_already_exists, weak_password…).
-  - Nach Signup automatisch einloggen falls Session direkt zurückkommt; sonst klarer Hinweis.
-  - Toaster-Feedback klarer, kleiner Auto-Sync alle 60 s wenn eingeloggt.
+- `<main>` → `h-screen w-screen overflow-y-auto overscroll-contain`
+- Unteres Padding erhöhen (`pb-24`), damit die letzte Karte über dem Mobile-Safe-Area sichtbar bleibt.
+- Karten-Grid: `gap-6` beibehalten, aber `md:grid-cols-2` → auf Mobil bleibt es einspaltig (schon so), nur Container-Höhe muss stimmen.
 
-## 2. 150 neue Sammelitems (Total ~600)
-- In `collectibles.ts` einen zusätzlichen Generator-Block anhängen: 6 neue Themen-Serien à 25 Items (Aurora Borealis, Deep Sea, Chrome Wings, Neon Circuit, Volcanic, Storm).
-- Verteilt auf bestehende Seltenheiten (common → celestial) mit passenden Effekten (bereits vorhandene Kategorien: perm accel/topSpeed/grip/brake, temp boosts, coins).
-- Keine neuen Seltenheiten/Boxen — die Zahl 600+ bleibt in der bestehenden UI (`CollectionCatalog`) filterbar.
+## 2. DevMode → Coins-Panel
 
-## 3. 25 neue vorgefertigte Autos + Daily-Bundle-Shop
-- `src/lib/preset-cars.ts` (neu): 25 vorgefertigte Autos (Name, Body-Type, Farben, Tuning-Basis, Rarity-Preisklasse) — deterministische Definition.
-- `src/lib/bundle-shop.ts` (neu):
-  - Täglich (Datum-basiert, Seed = YYYY-MM-DD) werden 2 Bundles gerollt.
-  - Jedes Bundle enthält: 1–3 Preset-Autos + 2–5 Sammelitems, Preis skaliert nach Inhalt/Seltenheit (5 000 – 60 000 Coins).
-  - Kauf: 1× pro Tag pro Bundle, Coins abziehen, Autos in Garage übernehmen (`garage.ts`), Sammelitems in Collection (`collection.ts`).
-- `src/components/BundleShop.tsx` (neu): zwei Karten mit Inhalt, Preis, Countdown bis Reset (Mitternacht lokal), Kaufbutton.
-- Einstieg im Header von `CarSelect.tsx` neben Inventory/Catalog.
+In `src/components/CarSelect.tsx` neben dem bestehenden DevMode-Button einen neuen Bereich einblenden, nur wenn `isDevMode() === true`:
 
-## 4. Massive Map-Erweiterung – 6 Regionen (Map ~5× größer)
-- `WORLD_SIZE` von 800 → 1800 (~5× Fläche). Fog & Draw-Distance nachziehen, Building-Count skalieren.
-- 6 Regionen als Quadranten/Sektoren um Zentrum:
-  1. **Stadt** (Default, freigeschaltet) – aktuelles Grid + Wolkenkratzer.
-  2. **Offroad** – bestehende Hügel, erweitert.
-  3. **Hügel** – sanfte, große Wellen (neue Höhenfunktion), Serpentinen-Straße.
-  4. **Täler** – tiefe Senken, Brücken, Fluss (blaue Ebene).
-  5. **Stunt-Park** – Rampen, Loops, Halfpipes (Boxen/Torus in `world.ts`).
-  6. **Strand** – flach, gelber Sand, Palmen (Cone+Cylinder), Meer am Rand.
-- `src/lib/regions.ts` (neu): Definition (id, name, price, unlocked-default, spawnPoint, bounds), Freischalt-State in `localStorage`, Coin-Kauf, `has(id)` helper.
-- `world.ts` erweitert: pro Region eigener Builder (heightfield + Props + Kollisions-Boxen), gated durch unlocked-Liste.
-- `CarSelect.tsx`: Region-Auswahl-Panel mit Preis & 🔒/✅.
+```
+⚡ DevMode aktiv
+[+1 000] [+10 000] [+100 000] [+1 000 000]  🪙 Coins geben
+[Reset auf 500]
+```
 
-## 5. Vollbild-Minimap
-- Bestehende Minimap in `Simulator.tsx` bekommt Tap/Click → Fullscreen-Overlay.
-- Overlay:
-  - Pausiert Physik-Loop (bereits vorhandenes pause-Flag im Simulator nutzen/ergänzen).
-  - Zeigt große Canvas-Karte mit Auto-Marker, Regionen, Nav-Ziel.
-  - Klick/Tap auf Karte setzt Navi-Ziel (`navigation.ts` `setDest`).
-  - Kleines **×** oben rechts (48 × 48 px, Touch-freundlich) schließt & entpaust.
-  - Escape-Taste ebenfalls schließt.
+Verwendet vorhandene `addCoins()` / `setCoinsAbsolute()` aus `src/lib/coins.ts`. Kein neues State-System.
 
-## Technische Details
-- Neue Dateien: `src/lib/preset-cars.ts`, `src/lib/bundle-shop.ts`, `src/lib/regions.ts`, `src/components/BundleShop.tsx`, `src/components/FullscreenMap.tsx`.
-- Geänderte Dateien: `src/lib/collectibles.ts` (+150), `src/lib/world.ts` (Größe + Regionen), `src/components/Simulator.tsx` (Fullscreen-Map, Pause, Region-Spawn), `src/components/CarSelect.tsx` (Header-Buttons, Region-Panel), `src/components/AccountMenu.tsx` (Validierung + Fehler), plus `supabase configure_auth` Aufruf für Auto-Confirm.
-- Keine DB-Migration nötig; bestehende `save_states`-Tabelle bleibt.
-- Region-Freischaltung, Bundle-Käufe & Fortschritt werden im bestehenden `save-sync` mit synchronisiert (LocalStorage-Keys automatisch mit exportiert).
+## 3. Langzeitmotivation — „Prestige & tägliche Streaks"
 
-## Out of scope
-- Neue Sammel-Seltenheiten oder Boxen.
-- Multiplayer/Regionen-Chat.
-- Regenerative Bundles unter Tages-Reset (nur 1×/Tag).
+Zwei ineinandergreifende Systeme, die Spieler über Wochen binden:
+
+### A) Daily-Login-Streak
+- Neue Datei `src/lib/daily-streak.ts`: speichert `lastClaimDate` + `streak` in LocalStorage.
+- Beim Öffnen der Garage einmal pro Tag ein Popup „🔥 Tag N — Belohnung abholen".
+- Belohnungsleiter (Loop bei Tag 30):
+  - Tag 1–6: 500 · 1 000 · 2 000 · 3 000 · 5 000 · 8 000 Coins
+  - Tag 7: 🎁 gratis Standard-Bundle
+  - Tag 14: 🎁 Premium-Bundle
+  - Tag 30: 1 zufälliges Legendary-Preset + 15 000 Coins
+- Streak bricht nach >48 h Pause; „Streak-Schutz"-Token einmalig bei Tag 10 vergeben.
+
+### B) Prestige-Level (endlos)
+- Neue Datei `src/lib/prestige.ts` + kleines Panel in `CarSelect`.
+- XP-Quellen: Missionen abschließen (+XP je Belohnungsstufe), Sammelitems finden (+XP nach Rarity), Bundles kaufen, Regionen freischalten.
+- Levelkurve: `xpForLevel(n) = 500 * n^1.6` → nahezu endlos, Level 100+ realistisch nach dutzenden Stunden.
+- Jeder Level-Up: +250 Coins + 1 Prestige-Punkt.
+- Prestige-Punkte im neuen Panel „✨ Prestige" ausgeben für dauerhafte Boni (stapelbar bis Rang 5):
+  - Coin-Multiplikator +5 %/Rang
+  - Sammelpaket-Drop-Chance +0,2 %/Rang
+  - Garagen-Slot-Preisrabatt −10 %/Rang
+  - XP-Boost +10 %/Rang
+- Speichert Rang je Kategorie in LocalStorage; über `save-sync` automatisch in Cloud synchronisiert (Keys folgen `garage:*`-Konvention).
+
+### Integration
+- `src/lib/missions.ts` und `src/lib/collection.ts` bekommen kleine `awardXp()`-Aufrufe an bestehenden Belohnungspunkten.
+- Coin-Multiplikator wird in `addCoins()`-Aufrufsites nicht überall angewendet — stattdessen neue Helper-Funktion `awardCoins(base)` in `prestige.ts`, die multipliziert. Bestehende `addCoins`-Direktnutzung bleibt für UI-Refunds (Verkauf etc.) unverändert.
+- Drop-Chance-Bonus wird in `Simulator.tsx` beim World-Pickup-Roll addiert.
+
+## Neue/geänderte Dateien
+- **Neu:** `src/lib/daily-streak.ts`, `src/lib/prestige.ts`, `src/components/DailyRewardDialog.tsx`, `src/components/PrestigePanel.tsx`
+- **Geändert:** `src/components/BundleShop.tsx` (Scroll-Fix), `src/components/CarSelect.tsx` (DevMode-Coin-Buttons, Prestige-Button, Daily-Dialog), `src/lib/missions.ts` + `src/lib/collection.ts` (XP-Hooks), `src/components/Simulator.tsx` (Drop-Chance-Bonus)
+
+Keine DB-Migration, keine neuen Packages.
