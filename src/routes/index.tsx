@@ -38,9 +38,9 @@ type View =
   | { kind: "bundles" }
   | { kind: "pick-p2"; spec1: CarSpec }
   | { kind: "lobby"; spec: CarSpec }
-  | { kind: "sim-solo"; spec: CarSpec }
-  | { kind: "sim-split"; spec1: CarSpec; spec2: CarSpec }
-  | { kind: "sim-online"; spec: CarSpec; room: string; name: string };
+  | { kind: "sim-solo"; spec: CarSpec; mapMod?: Mod }
+  | { kind: "sim-split"; spec1: CarSpec; spec2: CarSpec; mapMod?: Mod }
+  | { kind: "sim-online"; spec: CarSpec; room: string; name: string; mapMod?: Mod };
 
 function specOf(sel: GarageSelection): CarSpec {
   return sel.kind === "preset" ? presetToSpec(sel.key) : customToSpec(sel.car);
