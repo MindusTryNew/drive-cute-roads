@@ -175,12 +175,8 @@ export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestD
         } else setSelected(null);
         return;
       }
-      const obj = defaultFor(t, Math.round(p.x), Math.round(p.z));
-      setObjects((os) => {
-        const next = [...os, obj];
-        setSelected(next.length - 1);
-        return next;
-      });
+      const obj = defaultFor(t, snapVal(p.x), snapVal(p.z));
+      applyObjects([...objectsRef.current, obj], objectsRef.current.length);
     };
 
     r.domElement.addEventListener("mousedown", onMouseDown);
