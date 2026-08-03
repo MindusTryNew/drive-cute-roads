@@ -293,6 +293,9 @@ export function CarSelect({
         {showRegions && <RegionPanel onClose={() => setShowRegions(false)} />}
         {showDaily && <DailyRewardDialog onClose={() => setShowDaily(false)} />}
         {showPrestige && <PrestigePanel onClose={() => setShowPrestige(false)} />}
+        {showPremium && <PremiumPassPanel onClose={() => setShowPremium(false)} />}
+        {showNews && <NewsPanel onClose={() => setShowNews(false)} />}
+        {showFarewell && <FarewellGiftDialog onClose={() => setShowFarewell(false)} />}
 
         <section className="mt-12">
           <h2 className="text-4xl font-bold tracking-tight md:text-5xl">{headline ?? "Wähle dein Fahrzeug."}</h2>
