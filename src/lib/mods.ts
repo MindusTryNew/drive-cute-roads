@@ -13,6 +13,8 @@ import {
   type Tuning,
 } from "./garage";
 
+const safeLS = () => (typeof localStorage !== "undefined" ? localStorage : null);
+
 /* --------------------------------------------------------------------- */
 /* Payload-Schemata                                                       */
 /* --------------------------------------------------------------------- */
@@ -198,19 +200,19 @@ export type InstalledPreset = {
 
 export function getInstalledMapMods(): InstalledMapMod[] {
   try {
-    return JSON.parse(localStorage.getItem(INSTALLED_MAP_KEY) ?? "[]");
+    return JSON.parse(safeLS()?.getItem(INSTALLED_MAP_KEY) ?? "[]");
   } catch {
     return [];
   }
 }
 
 export function setInstalledMapMods(mods: InstalledMapMod[]) {
-  localStorage.setItem(INSTALLED_MAP_KEY, JSON.stringify(mods));
+  safeLS()?.setItem(INSTALLED_MAP_KEY, JSON.stringify(mods));
 }
 
 export function getInstalledPresets(): InstalledPreset[] {
   try {
-    return JSON.parse(localStorage.getItem(INSTALLED_PRESET_KEY) ?? "[]");
+    return JSON.parse(safeLS()?.getItem(INSTALLED_PRESET_KEY) ?? "[]");
   } catch {
     return [];
   }
@@ -240,7 +242,7 @@ export async function applyMod(mod: Mod): Promise<string> {
     case "tuning-preset": {
       const list = getInstalledPresets();
       list.push({ id: mod.id, name: mod.name, patch: mod.payload.patch });
-      localStorage.setItem(INSTALLED_PRESET_KEY, JSON.stringify(list));
+      safeLS()?.setItem(INSTALLED_PRESET_KEY, JSON.stringify(list));
       return `Tuning-Preset „${mod.name}" gespeichert — im Auto-Editor auswählbar.`;
     }
     case "part-pack": {
