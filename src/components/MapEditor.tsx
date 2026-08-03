@@ -353,7 +353,10 @@ export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestD
           <aside className="pointer-events-auto ml-auto w-72 border-l bg-card/80 p-4 backdrop-blur-md">
             <div className="flex items-center justify-between">
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Eigenschaften</p>
-              <button onClick={removeSelected} className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive">✕</button>
+              <div className="flex gap-1">
+                <button onClick={duplicateSelected} title="Duplizieren" className="rounded-md border px-2 py-1 text-xs hover:border-primary">⧉</button>
+                <button onClick={removeSelected} className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive">✕</button>
+              </div>
             </div>
             <p className="mt-1 font-bold capitalize">{sel.type}</p>
 
@@ -374,9 +377,19 @@ export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestD
               {sel.type === "checkpoint" && (
                 <NumField label="Radius" value={sel.radius} onChange={(v) => patchSelected({ radius: v } as Partial<MapObject>)} min={1} max={30} />
               )}
-              {sel.type === "prop" && (
+              {sel.type === "prop" && (<>
                 <NumField label="Größe" value={sel.size} onChange={(v) => patchSelected({ size: v } as Partial<MapObject>)} min={0.2} max={40} />
-              )}
+                <div>
+                  <label className="mb-1 block font-mono text-[10px] text-muted-foreground">Form</label>
+                  <select value={sel.shape} onChange={(e) => patchSelected({ shape: e.target.value as MapObject["shape"] } as Partial<MapObject>)}
+                    className="w-full rounded-md border bg-background px-2 py-1">
+                    <option value="box">Würfel</option>
+                    <option value="sphere">Kugel</option>
+                    <option value="cone">Kegel</option>
+                    <option value="cylinder">Zylinder</option>
+                  </select>
+                </div>
+              </>)}
               <div>
                 <label className="mb-1 block font-mono text-[10px] text-muted-foreground">Farbe</label>
                 <input type="color" value={sel.color}
