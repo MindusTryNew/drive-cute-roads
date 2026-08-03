@@ -602,6 +602,13 @@ export function Simulator({
         }
       }
 
+      // Minimap-Trail aktualisieren (alle ~10 Frames ein Punkt)
+      trailTick++;
+      if (trailTick % 10 === 0) {
+        trail.push(new THREE.Vector3(p1.group.position.x, 0, p1.group.position.z));
+        if (trail.length > 120) trail.shift();
+      }
+
       drawMinimap();
 
 
