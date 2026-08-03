@@ -9,12 +9,15 @@ export function mountMapMods(scene: THREE.Scene, world: WorldRefs, shadows: bool
   const mods = getInstalledMapMods().filter((m) => m.enabled);
   let count = 0;
   for (const mod of mods) {
-    for (const obj of mod.objects) {
-      spawnObject(scene, world, obj, shadows);
-      count++;
-    }
+    count += mountMapObjects(scene, world, mod.objects, shadows);
   }
   return count;
+}
+
+/** Mountet eine beliebige Liste von Map-Objekten in die Szene. */
+export function mountMapObjects(scene: THREE.Scene, world: WorldRefs, objects: MapObject[], shadows: boolean): number {
+  for (const obj of objects) spawnObject(scene, world, obj, shadows);
+  return objects.length;
 }
 
 function spawnObject(scene: THREE.Scene, world: WorldRefs, o: MapObject, shadows: boolean) {
