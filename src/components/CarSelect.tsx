@@ -97,8 +97,16 @@ export function CarSelect({
 
   const [showDaily, setShowDaily] = useState(false);
   const [showPrestige, setShowPrestige] = useState(false);
+  const [showPremium, setShowPremium] = useState(false);
+  const [showNews, setShowNews] = useState(false);
+  const [showFarewell, setShowFarewell] = useState(false);
   const [prestigeLevel, setPrestigeLevel] = useState(getLevel());
   const [prestigePoints, setPrestigePoints] = useState(getPoints());
+  const [premiumActive, setPremiumActive] = useState(false);
+  const [premiumUntil, setPremiumUntil] = useState<number | null>(null);
+  const [newsUnread, setNewsUnread] = useState(false);
+  const [newsCount, setNewsCount] = useState(0);
+  const [giftClaimed, setGiftClaimed] = useState(true);
 
   useEffect(() => {
     setCustomCars(listCars());
