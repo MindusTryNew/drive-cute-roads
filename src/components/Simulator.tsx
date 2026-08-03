@@ -48,10 +48,12 @@ export function Simulator({
   spec,
   mode,
   onExit,
+  mapMod,
 }: {
   spec: CarSpec;
   mode: Mode;
   onExit: () => void;
+  mapMod?: Mod;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const minimapRef = useRef<HTMLCanvasElement>(null);
