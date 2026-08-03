@@ -52,13 +52,13 @@ function Index() {
   const [mode, setMode] = useState<PickMode>("solo");
 
   if (view.kind === "sim-solo") {
-    return <Simulator spec={view.spec} mode={{ kind: "solo" }} onExit={() => setView({ kind: "garage" })} />;
+    return <Simulator spec={view.spec} mode={{ kind: "solo" }} mapMod={view.mapMod} onExit={() => setView({ kind: "garage" })} />;
   }
   if (view.kind === "sim-split") {
-    return <Simulator spec={view.spec1} mode={{ kind: "split", spec2: view.spec2 }} onExit={() => setView({ kind: "garage" })} />;
+    return <Simulator spec={view.spec1} mode={{ kind: "split", spec2: view.spec2 }} mapMod={view.mapMod} onExit={() => setView({ kind: "garage" })} />;
   }
   if (view.kind === "sim-online") {
-    return <Simulator spec={view.spec} mode={{ kind: "online", room: view.room, name: view.name }} onExit={() => setView({ kind: "garage" })} />;
+    return <Simulator spec={view.spec} mode={{ kind: "online", room: view.room, name: view.name }} mapMod={view.mapMod} onExit={() => setView({ kind: "garage" })} />;
   }
   if (view.kind === "lobby") {
     return (
