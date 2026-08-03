@@ -14,13 +14,62 @@ const defaultFor = (tool: Exclude<Tool, "select">, x: number, z: number): MapObj
   }
 };
 
-export function MapEditor({ onBack }: { onBack: () => void }) {
+export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestDrive?: (mod: Mod) => void }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<Tool>("building");
   const [objects, setObjects] = useState<MapObject[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [mapName, setMapName] = useState("Meine Karte");
   const [author, setAuthor] = useState("anon");
+  const [snap, setSnap] = useState(true);
+  const [gridSize, setGridSize] = useState(5);
+
+  // Undo / redo history
+  const [history, setHistory] = useState<MapObject[][]>([[]]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const historyRef = useRef(history); historyRef.current = history;
+  const indexRef = useRef(historyIndex); indexRef.current = historyIndex;
+
+  const applyObjects = (next: MapObject[], newSelection?: number | null) => {
+    setObjects(next);
+    const i = indexRef.current;
+    const nextHistory = [...historyRef.current.slice(0, i + 1), next];
+    setHistory(nextHistory);
+    setHistoryIndex(i + 1);
+    if (newSelection !== undefined) setSelected(newSelection);
+  };
+
+  const undo = () => {
+    const i = indexRef.current;
+    if (i <= 0) return;
+    setObjects(historyRef.current[i - 1]);
+    setHistoryIndex(i - 1);
+    setSelected(null);
+  };
+  const redo = () => {
+    const i = indexRef.current;
+    if (i >= historyRef.current.length - 1) return;
+    setObjects(historyRef.current[i + 1]);
+    setHistoryIndex(i + 1);
+    setSelected(null);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        e.shiftKey ? redo() : undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y")) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const snapVal = (v: number) => snap ? Math.round(v / gridSize) * gridSize : Math.round(v);
+
   const objectsRef = useRef(objects);
   objectsRef.current = objects;
   const toolRef = useRef(tool);
