@@ -381,7 +381,8 @@ export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestD
                 <NumField label="Größe" value={sel.size} onChange={(v) => patchSelected({ size: v } as Partial<MapObject>)} min={0.2} max={40} />
                 <div>
                   <label className="mb-1 block font-mono text-[10px] text-muted-foreground">Form</label>
-                  <select value={sel.shape} onChange={(e) => patchSelected({ shape: e.target.value as MapObject["shape"] } as Partial<MapObject>)}
+                  <select value={(sel as Extract<MapObject, { type: "prop" }>).shape}
+                    onChange={(e) => patchSelected({ shape: e.target.value as Extract<MapObject, { type: "prop" }>["shape"] } as Partial<MapObject>)}
                     className="w-full rounded-md border bg-background px-2 py-1">
                     <option value="box">Würfel</option>
                     <option value="sphere">Kugel</option>
