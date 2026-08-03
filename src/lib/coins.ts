@@ -1,4 +1,6 @@
 // Local coin wallet — no auth, persists in localStorage. SSR-safe.
+import { premiumCoinMultiplier } from "./premium-pass";
+
 const KEY = "garage:coins";
 const SLOTS_KEY = "garage:slots";
 const STARTING_COINS = 500;
@@ -26,7 +28,8 @@ function setCoinsRaw(n: number) {
 }
 
 export function addCoins(amount: number) {
-  setCoinsRaw(getCoins() + amount);
+  if (amount <= 0) return;
+  setCoinsRaw(getCoins() + Math.round(amount * premiumCoinMultiplier()));
 }
 
 export function spendCoins(amount: number): boolean {

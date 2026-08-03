@@ -1,5 +1,6 @@
 // Endloses Prestige-/XP-System für Langzeit-Motivation.
 import { addCoins } from "./coins";
+import { premiumXpMultiplier } from "./premium-pass";
 import { toast } from "sonner";
 
 const XP_KEY = "garage:prestige:xp";
@@ -65,11 +66,11 @@ export function levelProgress(): { current: number; needed: number; level: numbe
   return { current: Math.max(0, Math.floor(xp - acc)), needed: xpForLevel(level), level };
 }
 
-/** Fügt XP hinzu — respektiert xpBoost-Rang. Löst Level-Ups aus (Coins + Prestige-Punkte). */
+/** Fügt XP hinzu — respektiert xpBoost-Rang und Premium-Pass. Löst Level-Ups aus (Coins + Prestige-Punkte). */
 export function awardXp(base: number) {
   if (base <= 0) return;
   const ranks = getRanks();
-  const mult = 1 + ranks.xpBoost * 0.10;
+  const mult = (1 + ranks.xpBoost * 0.10) * premiumXpMultiplier();
   const gained = base * mult;
   const newXp = getXp() + gained;
   safeLS()?.setItem(XP_KEY, String(newXp));
