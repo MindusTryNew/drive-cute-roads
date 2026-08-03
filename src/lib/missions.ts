@@ -71,6 +71,7 @@ export const MISSIONS: Mission[] = [
 const ACTIVE_KEY = "garage:activeMission";
 const DONE_KEY = "garage:doneMissions";
 const TIME_TOTAL_KEY = "garage:totalDriveSec";
+const safeLS = () => (typeof localStorage !== "undefined" ? localStorage : null);
 
 /* -------------- Rotation (alle 120 s neuer 3er-Pool) -------------- */
 export const ROTATION_INTERVAL_SEC = 120;
@@ -112,11 +113,13 @@ export function secondsUntilNextRotation(now = Date.now()): number {
 /* -------------- Active / Done / Progress -------------- */
 
 export function getActiveMissionId(): string | null {
-  return localStorage.getItem(ACTIVE_KEY);
+  return safeLS()?.getItem(ACTIVE_KEY) ?? null;
 }
 export function setActiveMissionId(id: string | null) {
-  if (id) localStorage.setItem(ACTIVE_KEY, id);
-  else localStorage.removeItem(ACTIVE_KEY);
+  const ls = safeLS();
+  if (!ls) return;
+  if (id) ls.setItem(ACTIVE_KEY, id);
+  else ls.removeItem(ACTIVE_KEY);
 }
 export function getActiveMission(): Mission | null {
   const id = getActiveMissionId();
@@ -126,7 +129,7 @@ export function getActiveMission(): Mission | null {
 
 export function getDone(): string[] {
   try {
-    return JSON.parse(localStorage.getItem(DONE_KEY) ?? "[]");
+    return JSON.parse(safeLS()?.getItem(DONE_KEY) ?? "[]");
   } catch {
     return [];
   }
@@ -138,7 +141,7 @@ export function completeMission(id: string) {
   const done = getDone();
   if (done.includes(id)) return;
   done.push(id);
-  localStorage.setItem(DONE_KEY, JSON.stringify(done));
+  safeLS()?.setItem(DONE_KEY, JSON.stringify(done));
   const m = MISSIONS.find((x) => x.id === id);
   if (m) {
     addCoins(m.reward);
@@ -149,10 +152,10 @@ export function completeMission(id: string) {
 }
 
 export function getTotalDriveSec(): number {
-  const n = parseFloat(localStorage.getItem(TIME_TOTAL_KEY) ?? "0");
+  const n = parseFloat(safeLS()?.getItem(TIME_TOTAL_KEY) ?? "0");
   return Number.isFinite(n) ? n : 0;
 }
 export function addDriveSec(sec: number) {
   if (sec <= 0) return;
-  localStorage.setItem(TIME_TOTAL_KEY, String(getTotalDriveSec() + sec));
+  safeLS()?.setItem(TIME_TOTAL_KEY, String(getTotalDriveSec() + sec));
 }

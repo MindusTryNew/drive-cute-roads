@@ -3,6 +3,7 @@ import { addCoins, addSlot } from "./coins";
 import { setDevMode } from "./devmode";
 
 const REDEEMED_KEY = "garage:redeemed";
+const safeLS = () => (typeof localStorage !== "undefined" ? localStorage : null);
 
 export type CodeReward =
   | { kind: "devmode" }
@@ -16,14 +17,14 @@ const CATALOG: CodeDef[] = [
 ];
 
 function getRedeemed(): string[] {
-  try { return JSON.parse(localStorage.getItem(REDEEMED_KEY) ?? "[]"); }
+  try { return JSON.parse(safeLS()?.getItem(REDEEMED_KEY) ?? "[]"); }
   catch { return []; }
 }
 function markRedeemed(code: string) {
   const list = getRedeemed();
   if (!list.includes(code)) {
     list.push(code);
-    localStorage.setItem(REDEEMED_KEY, JSON.stringify(list));
+    safeLS()?.setItem(REDEEMED_KEY, JSON.stringify(list));
   }
 }
 

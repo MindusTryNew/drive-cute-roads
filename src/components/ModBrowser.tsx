@@ -44,8 +44,14 @@ export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onO
 
   // Upload dialog
   const [uploadMod, setUploadMod] = useState<Mod | null>(null);
-  const [nick, setNick] = useState(localStorage.getItem("garage:sellerNick") ?? "");
+  const [nick, setNick] = useState("");
   const [desc, setDesc] = useState("");
+
+  useEffect(() => {
+    if (typeof localStorage !== "undefined") {
+      setNick(localStorage.getItem("garage:sellerNick") ?? "");
+    }
+  }, []);
 
   const refresh = async () => {
     setLoading(true); setErr(null);
