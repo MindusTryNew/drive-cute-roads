@@ -17,8 +17,14 @@ import { AccountMenu } from "@/components/AccountMenu";
 import { RegionPanel } from "@/components/RegionPanel";
 import { DailyRewardDialog } from "@/components/DailyRewardDialog";
 import { PrestigePanel } from "@/components/PrestigePanel";
+import { PremiumPassPanel } from "@/components/PremiumPassPanel";
+import { NewsPanel } from "@/components/NewsPanel";
+import { FarewellGiftDialog } from "@/components/FarewellGiftDialog";
 import { readState as readDailyState } from "@/lib/daily-streak";
 import { getLevel, getPoints, subscribePrestige } from "@/lib/prestige";
+import { isPremiumActive, getPaidUntil, formatRemaining } from "@/lib/premium-pass";
+import { hasUnread, unreadCount } from "@/lib/news";
+import { hasClaimedFarewellGift } from "@/lib/farewell-gift";
 
 export type CarKey = "roadster" | "suv" | "racer";
 export type Mode = "solo" | "split" | "online";
