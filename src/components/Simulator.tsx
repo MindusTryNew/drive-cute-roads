@@ -29,7 +29,7 @@ import { MobileControls } from "@/components/MobileControls";
 import { getPermBonuses, subscribePermBonuses } from "@/lib/perm-bonuses";
 import { addPack } from "@/lib/inventory";
 import { rollWorldPackType, PACK_META, type PackType } from "@/lib/collectibles";
-import { REGIONS_BY_ID, getActiveRegion } from "@/lib/regions";
+import { REGIONS_BY_ID, getActiveRegion, REGIONS, regionAt } from "@/lib/regions";
 
 type Mode =
   | { kind: "solo" }
