@@ -20,7 +20,8 @@ import {
   MISSIONS,
   type Mission,
 } from "@/lib/missions";
-import { mountMapMods } from "@/lib/map-mods";
+import { mountMapMods, mountMapObjects } from "@/lib/map-mods";
+import type { Mod } from "@/lib/mods";
 import { isDevMode, subscribeDevMode } from "@/lib/devmode";
 import { getDest, setDest, subscribeDest } from "@/lib/navigation";
 import { QualitySettings } from "@/components/QualitySettings";
