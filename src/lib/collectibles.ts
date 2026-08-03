@@ -457,6 +457,29 @@ const STORM = gen("sto", "mythical", STORM_NAMES, ["⛈️","🌩️","⚡","�
   return { kind: "coins", amount: 9000 + (i % 5) * 1200 };
 }, "Sturm-Serie: ");
 
+const FAREWELL: Collectible[] = [
+  mk("fw-thankyou", "Dankesnachricht", "Ein Brief vom Entwickler-Team.", "celestial", "💌", { kind: "coins", amount: 1000 }),
+  mk("fw-devteam", "Dev-Team-Abzeichen", "Für alle, die bis zum Ende dabei waren.", "celestial", "🛠️", { kind: "cosmetic" }),
+  mk("fw-community", "Community-Stern", "Ohne euch wäre das Spiel nicht möglich gewesen.", "legendary", "⭐", { kind: "perm", stat: "grip", pct: 2 }),
+  mk("fw-roadster", "Farewell Roadster", "Ein goldenes Erinnerungsstück.", "legendary", "🏎️", { kind: "perm", stat: "topSpeed", pct: 2 }),
+  mk("fw-suv", "Farewell SUV", "Robust und dankbar.", "epic", "🚙", { kind: "perm", stat: "brake", pct: 2 }),
+  mk("fw-racer", "Farewell Racer", "Schnell wie der Wind.", "epic", "🏁", { kind: "perm", stat: "accel", pct: 2 }),
+  mk("fw-city", "Stadt-Souvenir", "Erinnerung an die Neon-Stadt.", "rare", "🌆", { kind: "coins", amount: 500 }),
+  mk("fw-offroad", "Offroad-Abzeichen", "Für matschige Abenteuer.", "rare", "🌲", { kind: "coins", amount: 500 }),
+  mk("fw-hills", "Hügel-Souvenir", "Mit Panoramablick.", "rare", "⛰️", { kind: "coins", amount: 500 }),
+  mk("fw-valley", "Tal-Souvenir", "Zwischen den Bergen.", "rare", "🌄", { kind: "coins", amount: 500 }),
+  mk("fw-stunt", "Stunt-Abzeichen", "Für mutige Sprünge.", "epic", "🚀", { kind: "coins", amount: 1000 }),
+  mk("fw-beach", "Strand-Souvenir", "Salzige Brise.", "rare", "🏖️", { kind: "coins", amount: 500 }),
+  mk("fw-coins", "Schatztruhe", "Ein kleines Vermögen.", "legendary", "💰", { kind: "coins", amount: 5000 }),
+  mk("fw-garage", "Garagen-Plakette", "Für Sammler.", "uncommon", "🅿️", { kind: "coins", amount: 250 }),
+  mk("fw-market", "Markt-Token", "Ein Gutschein für den Marktplatz.", "uncommon", "🏪", { kind: "coins", amount: 250 }),
+  mk("fw-mods", "Mod-Badge", "Für kreative Modder.", "uncommon", "🔧", { kind: "coins", amount: 250 }),
+  mk("fw-missions", "Mission-Pin", "Für alle Heldentaten.", "uncommon", "📍", { kind: "coins", amount: 250 }),
+  mk("fw-prestige", "Prestige-Medaille", "Ein Symbol des Fortschritts.", "epic", "🎖️", { kind: "perm", stat: "accel", pct: 1 }),
+  mk("fw-daily", "Daily-Streak", "Konsistenz zahlt sich aus.", "uncommon", "🔥", { kind: "coins", amount: 250 }),
+  mk("fw-legends", "Legends-Circuit-Ticket", "Ein Ticket für die Ewigkeit.", "mythical", "🏆", { kind: "perm", stat: "topSpeed", pct: 3 }),
+];
+
 export const COLLECTIBLES: Collectible[] = [
   ...COMMON, ...COMMON_EXT,
   ...UNCOMMON, ...UNCOMMON_EXT,
@@ -467,6 +490,7 @@ export const COLLECTIBLES: Collectible[] = [
   ...COSMIC_EXT,
   ...CELESTIAL_EXT,
   ...AURORA, ...DEEPSEA, ...CHROME, ...NEON, ...VOLCANIC, ...STORM,
+  ...FAREWELL,
 ];
 export const COLLECTIBLES_BY_ID: Record<string, Collectible> = Object.fromEntries(COLLECTIBLES.map((c) => [c.id, c]));
 export const TOTAL_COUNT = COLLECTIBLES.length;

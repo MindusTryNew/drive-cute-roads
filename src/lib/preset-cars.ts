@@ -61,6 +61,14 @@ export const PRESETS: PresetDef[] = [
   { key: "hyper-veyr",  name: "Vayron Legend",   body: "racer",  primary: "#0ea5e9", secondary: "#000", spoiler: true, spoilerHeight: 0.55, top: 380, time0to100: 2.5, weight: 1900, grip: 92, brakeDist: 28, drive: "AWD", rarity: "legendary" },
   { key: "hyper-ev",    name: "Voltron X",       body: "racer",  primary: "#22d3ee", spoiler: true, spoilerHeight: 0.6, top: 360, time0to100: 2.1, weight: 2100, grip: 94, brakeDist: 26, drive: "AWD", rarity: "legendary" },
   { key: "hyper-god",   name: "Aeon Prototype",  body: "racer",  primary: "#fef3c7", secondary: "#7c2d12", spoiler: true, spoilerHeight: 0.7, top: 400, time0to100: 1.9, weight: 1050, grip: 96, brakeDist: 24, drive: "AWD", rarity: "legendary" },
+
+  // farewell gift (6)
+  { key: "farewell-aurora",   name: "Aurora GT " + "Farewell",    body: "roadster", primary: "#e8c547", secondary: "#fff", spoiler: true, spoilerHeight: 0.3, top: 260, time0to100: 4.5, weight: 1350, grip: 78, brakeDist: 34, drive: "RWD", rarity: "epic", tag: "Farewell" },
+  { key: "farewell-monolith", name: "Monolith X " + "Farewell",   body: "suv",      primary: "#5b8def", secondary: "#fff", wheelSize: 22, top: 210, time0to100: 6.8, weight: 2300, grip: 90, brakeDist: 40, drive: "AWD", rarity: "epic", tag: "Farewell" },
+  { key: "farewell-vortex",   name: "Vortex R1 " + "Farewell",    body: "racer",    primary: "#ef4f5b", secondary: "#fff", spoiler: true, spoilerHeight: 0.6, top: 340, time0to100: 3.1, weight: 1250, grip: 88, brakeDist: 28, drive: "AWD", rarity: "legendary", tag: "Farewell" },
+  { key: "farewell-drift",    name: "Drift King " + "Farewell",   body: "roadster", primary: "#a855f7", secondary: "#111", spoiler: true, spoilerHeight: 0.7, top: 280, time0to100: 4.0, weight: 1200, grip: 86, brakeDist: 32, drive: "RWD", rarity: "epic", tag: "Farewell" },
+  { key: "farewell-offroad",  name: "Dune Raider " + "Farewell",  body: "suv",      primary: "#f97316", secondary: "#3f1807", wheelSize: 24, top: 200, time0to100: 7.2, weight: 2100, grip: 92, brakeDist: 42, drive: "AWD", rarity: "epic", tag: "Farewell" },
+  { key: "farewell-beach",    name: "Coast Runner " + "Farewell", body: "roadster", primary: "#06b6d4", secondary: "#fde047", top: 240, time0to100: 5.2, weight: 1300, grip: 74, brakeDist: 36, drive: "RWD", rarity: "rare", tag: "Farewell" },
 ];
 
 export const PRESETS_BY_KEY = Object.fromEntries(PRESETS.map((p) => [p.key, p])) as Record<string, PresetDef>;
