@@ -936,6 +936,14 @@ export function Simulator({
               <canvas
                 ref={minimapRef}
                 onClick={() => setMapFull(true)}
+                onWheel={(e) => {
+                  e.preventDefault();
+                  const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
+                  setMapZoom((z) => {
+                    const next = Math.max(0.5, Math.min(4, z * Math.exp(-dy * 0.0015)));
+                    return Math.round(next * 100) / 100;
+                  });
+                }}
                 className="block cursor-pointer rounded-full"
                 style={{ width: 200, height: 200 }}
               />
