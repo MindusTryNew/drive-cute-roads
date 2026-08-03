@@ -19,14 +19,15 @@ export const PRESETS: Record<Exclude<QualityKey, "auto">, QualityPreset> = {
 };
 
 const KEY = "garage:quality";
+const safeLS = () => (typeof localStorage !== "undefined" ? localStorage : null);
 
 export function getQualitySetting(): QualityKey {
-  const v = (localStorage.getItem(KEY) as QualityKey | null) ?? "auto";
+  const v = (safeLS()?.getItem(KEY) as QualityKey | null) ?? "auto";
   return ["auto", "low", "med", "high"].includes(v) ? v : "auto";
 }
 
 export function setQualitySetting(q: QualityKey) {
-  localStorage.setItem(KEY, q);
+  safeLS()?.setItem(KEY, q);
 }
 
 // Heuristic if user picked "auto" — based on devicePixelRatio + hardware concurrency hints.

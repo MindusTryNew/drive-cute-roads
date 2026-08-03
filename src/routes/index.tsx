@@ -14,6 +14,7 @@ import { CollectionCatalog } from "@/components/CollectionCatalog";
 import { BundleShop } from "@/components/BundleShop";
 import { presetToSpec, customToSpec, type CarSpec } from "@/lib/car-spec";
 import type { CustomCar } from "@/lib/garage";
+import type { Mod } from "@/lib/mods";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -38,9 +39,9 @@ type View =
   | { kind: "bundles" }
   | { kind: "pick-p2"; spec1: CarSpec }
   | { kind: "lobby"; spec: CarSpec }
-  | { kind: "sim-solo"; spec: CarSpec }
-  | { kind: "sim-split"; spec1: CarSpec; spec2: CarSpec }
-  | { kind: "sim-online"; spec: CarSpec; room: string; name: string };
+  | { kind: "sim-solo"; spec: CarSpec; mapMod?: Mod }
+  | { kind: "sim-split"; spec1: CarSpec; spec2: CarSpec; mapMod?: Mod }
+  | { kind: "sim-online"; spec: CarSpec; room: string; name: string; mapMod?: Mod };
 
 function specOf(sel: GarageSelection): CarSpec {
   return sel.kind === "preset" ? presetToSpec(sel.key) : customToSpec(sel.car);
@@ -51,13 +52,13 @@ function Index() {
   const [mode, setMode] = useState<PickMode>("solo");
 
   if (view.kind === "sim-solo") {
-    return <Simulator spec={view.spec} mode={{ kind: "solo" }} onExit={() => setView({ kind: "garage" })} />;
+    return <Simulator spec={view.spec} mode={{ kind: "solo" }} mapMod={view.mapMod} onExit={() => setView({ kind: "garage" })} />;
   }
   if (view.kind === "sim-split") {
-    return <Simulator spec={view.spec1} mode={{ kind: "split", spec2: view.spec2 }} onExit={() => setView({ kind: "garage" })} />;
+    return <Simulator spec={view.spec1} mode={{ kind: "split", spec2: view.spec2 }} mapMod={view.mapMod} onExit={() => setView({ kind: "garage" })} />;
   }
   if (view.kind === "sim-online") {
-    return <Simulator spec={view.spec} mode={{ kind: "online", room: view.room, name: view.name }} onExit={() => setView({ kind: "garage" })} />;
+    return <Simulator spec={view.spec} mode={{ kind: "online", room: view.room, name: view.name }} mapMod={view.mapMod} onExit={() => setView({ kind: "garage" })} />;
   }
   if (view.kind === "lobby") {
     return (
@@ -89,7 +90,12 @@ function Index() {
     return <TutorialScreen onBack={() => setView({ kind: "mods" })} />;
   }
   if (view.kind === "map-editor") {
-    return <MapEditor onBack={() => setView({ kind: "garage" })} />;
+    return (
+      <MapEditor
+        onBack={() => setView({ kind: "garage" })}
+        onTestDrive={(mod) => setView({ kind: "sim-solo", spec: presetToSpec("roadster"), mapMod: mod })}
+      />
+    );
   }
   if (view.kind === "inventory") {
     return <Inventory onBack={() => setView({ kind: "garage" })} />;

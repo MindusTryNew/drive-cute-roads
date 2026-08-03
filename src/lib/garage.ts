@@ -70,6 +70,7 @@ export type CustomCar = z.infer<typeof CustomCarSchema>;
 const CARS_KEY = "garage:cars";
 const LIMIT_KEY = "garage:dailyLimit";
 const DAILY_MAX = 3;
+const safeLS = () => (typeof localStorage !== "undefined" ? localStorage : null);
 
 function today(): string {
   return new Date().toISOString().slice(0, 10);
@@ -119,7 +120,7 @@ export function emptyCar(name = "Neues Auto"): CustomCar {
 
 export function listCars(): CustomCar[] {
   try {
-    const raw = localStorage.getItem(CARS_KEY);
+    const raw = safeLS()?.getItem(CARS_KEY);
     if (!raw) return [];
     return z.array(CustomCarSchema).parse(JSON.parse(raw));
   } catch {
@@ -128,7 +129,7 @@ export function listCars(): CustomCar[] {
 }
 
 function writeCars(cars: CustomCar[]) {
-  localStorage.setItem(CARS_KEY, JSON.stringify(cars));
+  safeLS()?.setItem(CARS_KEY, JSON.stringify(cars));
 }
 
 export function saveCar(car: CustomCar, isNew: boolean) {
@@ -153,7 +154,7 @@ type DailyState = { date: string; count: number };
 
 function readDaily(): DailyState {
   try {
-    const raw = localStorage.getItem(LIMIT_KEY);
+    const raw = safeLS()?.getItem(LIMIT_KEY);
     if (!raw) return { date: today(), count: 0 };
     const v = JSON.parse(raw) as DailyState;
     if (v.date !== today()) return { date: today(), count: 0 };
@@ -166,7 +167,7 @@ function readDaily(): DailyState {
 function bumpDaily() {
   const s = readDaily();
   s.count += 1;
-  localStorage.setItem(LIMIT_KEY, JSON.stringify(s));
+  safeLS()?.setItem(LIMIT_KEY, JSON.stringify(s));
 }
 
 export function remainingToday(): number {

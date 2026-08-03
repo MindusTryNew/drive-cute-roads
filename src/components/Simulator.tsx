@@ -20,7 +20,8 @@ import {
   MISSIONS,
   type Mission,
 } from "@/lib/missions";
-import { mountMapMods } from "@/lib/map-mods";
+import { mountMapMods, mountMapObjects } from "@/lib/map-mods";
+import type { Mod } from "@/lib/mods";
 import { isDevMode, subscribeDevMode } from "@/lib/devmode";
 import { getDest, setDest, subscribeDest } from "@/lib/navigation";
 import { QualitySettings } from "@/components/QualitySettings";
@@ -29,7 +30,7 @@ import { MobileControls } from "@/components/MobileControls";
 import { getPermBonuses, subscribePermBonuses } from "@/lib/perm-bonuses";
 import { addPack } from "@/lib/inventory";
 import { rollWorldPackType, PACK_META, type PackType } from "@/lib/collectibles";
-import { REGIONS_BY_ID, getActiveRegion } from "@/lib/regions";
+import { REGIONS_BY_ID, getActiveRegion, REGIONS, regionAt } from "@/lib/regions";
 
 type Mode =
   | { kind: "solo" }
@@ -47,10 +48,12 @@ export function Simulator({
   spec,
   mode,
   onExit,
+  mapMod,
 }: {
   spec: CarSpec;
   mode: Mode;
   onExit: () => void;
+  mapMod?: Mod;
 }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const minimapRef = useRef<HTMLCanvasElement>(null);
@@ -106,6 +109,9 @@ export function Simulator({
 
     // Map-Mods (installiert) in die Szene mounten
     mountMapMods(scene, world, preset.shadows);
+    if (mapMod?.kind === "map") {
+      mountMapObjects(scene, world, mapMod.payload.objects, preset.shadows);
+    }
 
     const spawn = REGIONS_BY_ID[getActiveRegion()]?.spawn ?? { x: 60, z: 0 };
     const p1 = createPlayer(spec, scene, preset.shadows);
@@ -232,6 +238,8 @@ export function Simulator({
     // ---- Open-World Sammel-Paket-Drops (1.2 % Chance / Tick) ----
     type WorldPack = { type: PackType; group: THREE.Group; pos: THREE.Vector3 };
     const worldPacks: WorldPack[] = [];
+    const trail: THREE.Vector3[] = [];
+    let trailTick = 0;
     let packTick = 0;
     const spawnWorldPack = () => {
       if (worldPacks.length >= 3) return;
@@ -600,6 +608,13 @@ export function Simulator({
         }
       }
 
+      // Minimap-Trail aktualisieren (alle ~10 Frames ein Punkt)
+      trailTick++;
+      if (trailTick % 10 === 0) {
+        trail.push(new THREE.Vector3(p1.group.position.x, 0, p1.group.position.z));
+        if (trail.length > 120) trail.shift();
+      }
+
       drawMinimap();
 
 
@@ -650,6 +665,15 @@ export function Simulator({
       ctx.rotate(rot);
       ctx.translate(-p1.group.position.x * scale, -p1.group.position.z * scale);
 
+      // Regionen-Hintergründe
+      for (const r of REGIONS) {
+        ctx.fillStyle = r.color + "18";
+        ctx.fillRect(r.bounds.minX * scale, r.bounds.minZ * scale, (r.bounds.maxX - r.bounds.minX) * scale, (r.bounds.maxZ - r.bounds.minZ) * scale);
+        ctx.strokeStyle = r.color + "44";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(r.bounds.minX * scale, r.bounds.minZ * scale, (r.bounds.maxX - r.bounds.minX) * scale, (r.bounds.maxZ - r.bounds.minZ) * scale);
+      }
+
       // Offroad-Zone (Hügel) mit Konturen-Fill
       ctx.fillStyle = "#2d3520";
       ctx.fillRect(60 * scale, -400 * scale, 340 * scale, 340 * scale);
@@ -699,6 +723,29 @@ export function Simulator({
         ctx.fillRect(b.x * scale - (b.w * scale) / 2, b.z * scale - (b.d * scale) / 2, Math.max(1, b.w * scale), Math.max(1, b.d * scale));
       }
 
+      // Fahrzeug-Trail
+      if (trail.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(trail[0].x * scale, trail[0].z * scale);
+        for (let i = 1; i < trail.length; i++) ctx.lineTo(trail[i].x * scale, trail[i].z * scale);
+        ctx.strokeStyle = spec.appearance.primaryColor + "66";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Navigations-Ziel-Linie
+      if (navDest) {
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = "#5b8def";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(p1.group.position.x * scale, p1.group.position.z * scale);
+        ctx.lineTo(navDest.x * scale, navDest.z * scale);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // Missions-Marker mit Pin + Distanz
       const drawPin = (x: number, z: number, color: string, label?: string) => {
         ctx.save();
@@ -728,6 +775,22 @@ export function Simulator({
 
       if (pickupMarker) drawPin(pickupPos.x, pickupPos.z, "#f6d96a", `${distTo(pickupPos)}m`);
       if (dropMarker) drawPin(dropPos.x, dropPos.z, "#4ade80", `${distTo(dropPos)}m`);
+
+      // Welt-Pakete
+      for (const wp of worldPacks) {
+        const meta = PACK_META[wp.type];
+        ctx.save();
+        ctx.translate(wp.pos.x * scale, wp.pos.z * scale);
+        ctx.rotate(-rot);
+        ctx.fillStyle = meta.color;
+        ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(meta.emoji, 0, 0);
+        ctx.restore();
+      }
 
       // Remote Spieler-Dreiecke mit Farbe
       for (const r of remotes.values()) {
@@ -763,6 +826,24 @@ export function Simulator({
       ctx.fill(); ctx.stroke();
       ctx.restore();
 
+      // Regionen-Labels (immer aufrecht, an Region-Mitte)
+      ctx.save();
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      for (const r of REGIONS) {
+        const rx = (r.bounds.minX + r.bounds.maxX) / 2 * scale;
+        const rz = (r.bounds.minZ + r.bounds.maxZ) / 2 * scale;
+        ctx.save();
+        ctx.translate(rx, rz);
+        ctx.rotate(-rot);
+        ctx.fillStyle = r.color;
+        ctx.fillText(`${r.emoji} ${r.name}`, 0, 0);
+        ctx.restore();
+      }
+      ctx.restore();
+
       ctx.restore(); // Ende Clip
 
       // Kompass-Ring mit Grad-Marken
@@ -791,6 +872,18 @@ export function Simulator({
       ctx.textAlign = "center";
       ctx.fillText("N", 0, -(MM_SIZE / 2 - 14));
       ctx.restore();
+
+      // Aktuelle Region unten
+      const here = regionAt(p1.group.position.x, p1.group.position.z);
+      if (here) {
+        const r = REGIONS_BY_ID[here];
+        ctx.fillStyle = "rgba(13,18,32,0.8)";
+        ctx.fillRect(4, MM_SIZE - 18, MM_SIZE - 8, 14);
+        ctx.fillStyle = r.color;
+        ctx.font = "9px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`${r.emoji} ${r.name}`, cx, MM_SIZE - 7);
+      }
     };
 
     animate();
@@ -853,6 +946,14 @@ export function Simulator({
               <canvas
                 ref={minimapRef}
                 onClick={() => setMapFull(true)}
+                onWheel={(e) => {
+                  e.preventDefault();
+                  const dy = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 100 : 1);
+                  setMapZoom((z) => {
+                    const next = Math.max(0.5, Math.min(4, z * Math.exp(-dy * 0.0015)));
+                    return Math.round(next * 100) / 100;
+                  });
+                }}
                 className="block cursor-pointer rounded-full"
                 style={{ width: 200, height: 200 }}
               />

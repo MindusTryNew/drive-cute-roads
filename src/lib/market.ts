@@ -57,9 +57,11 @@ export async function purchaseListing(listing: MarketListing): Promise<CustomCar
 }
 
 const NICK_KEY = "garage:sellerNick";
+const safeLS = () => (typeof localStorage !== "undefined" ? localStorage : null);
+
 export function getSellerNick(): string {
-  return localStorage.getItem(NICK_KEY) ?? "";
+  return safeLS()?.getItem(NICK_KEY) ?? "";
 }
 export function setSellerNick(n: string) {
-  localStorage.setItem(NICK_KEY, n);
+  safeLS()?.setItem(NICK_KEY, n);
 }

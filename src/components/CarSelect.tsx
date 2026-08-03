@@ -17,8 +17,14 @@ import { AccountMenu } from "@/components/AccountMenu";
 import { RegionPanel } from "@/components/RegionPanel";
 import { DailyRewardDialog } from "@/components/DailyRewardDialog";
 import { PrestigePanel } from "@/components/PrestigePanel";
+import { PremiumPassPanel } from "@/components/PremiumPassPanel";
+import { NewsPanel } from "@/components/NewsPanel";
+import { FarewellGiftDialog } from "@/components/FarewellGiftDialog";
 import { readState as readDailyState } from "@/lib/daily-streak";
 import { getLevel, getPoints, subscribePrestige } from "@/lib/prestige";
+import { isPremiumActive, getPaidUntil, formatRemaining } from "@/lib/premium-pass";
+import { hasUnread, unreadCount } from "@/lib/news";
+import { hasClaimedFarewellGift } from "@/lib/farewell-gift";
 
 export type CarKey = "roadster" | "suv" | "racer";
 export type Mode = "solo" | "split" | "online";
@@ -91,8 +97,16 @@ export function CarSelect({
 
   const [showDaily, setShowDaily] = useState(false);
   const [showPrestige, setShowPrestige] = useState(false);
+  const [showPremium, setShowPremium] = useState(false);
+  const [showNews, setShowNews] = useState(false);
+  const [showFarewell, setShowFarewell] = useState(false);
   const [prestigeLevel, setPrestigeLevel] = useState(getLevel());
   const [prestigePoints, setPrestigePoints] = useState(getPoints());
+  const [premiumActive, setPremiumActive] = useState(false);
+  const [premiumUntil, setPremiumUntil] = useState<number | null>(null);
+  const [newsUnread, setNewsUnread] = useState(false);
+  const [newsCount, setNewsCount] = useState(0);
+  const [giftClaimed, setGiftClaimed] = useState(true);
 
   useEffect(() => {
     setCustomCars(listCars());
@@ -100,13 +114,24 @@ export function CarSelect({
     const un = subscribeCoins(setCoins);
     const un2 = subscribeDevMode(setDev);
     const un3 = subscribePrestige(() => { setPrestigeLevel(getLevel()); setPrestigePoints(getPoints()); });
+
+    const updateMeta = () => {
+      setPremiumActive(isPremiumActive());
+      setPremiumUntil(getPaidUntil());
+      setNewsUnread(hasUnread());
+      setNewsCount(unreadCount());
+      setGiftClaimed(hasClaimedFarewellGift());
+    };
+    updateMeta();
+    const metaInterval = window.setInterval(updateMeta, 2000);
+
     // Daily-Popup: nur einmal pro Session, wenn heute noch nicht abgeholt
     const s = readDailyState();
     if (s.canClaim) {
       const t = window.setTimeout(() => setShowDaily(true), 600);
-      return () => { un(); un2(); un3(); window.clearTimeout(t); };
+      return () => { un(); un2(); un3(); window.clearTimeout(t); window.clearInterval(metaInterval); };
     }
-    return () => { un(); un2(); un3(); };
+    return () => { un(); un2(); un3(); window.clearInterval(metaInterval); };
   }, []);
 
   const refresh = () => {
@@ -188,6 +213,26 @@ export function CarSelect({
               <button onClick={onOpenBundleShop}
                 className="rounded-lg border border-primary/60 bg-primary/10 px-3 py-1.5 text-sm hover:bg-primary/20">🎁 Bundles</button>
             )}
+            <button onClick={() => setShowPremium(true)}
+              className={`rounded-lg border px-3 py-1.5 text-sm hover:border-primary ${premiumActive ? "border-primary/60 bg-primary/10" : ""}`}
+              title={premiumActive && premiumUntil ? `Premium aktiv noch ${formatRemaining(Math.max(0, premiumUntil - Date.now()))}` : "Premium-Pass"}>
+              💎 Premium{premiumActive ? " ✓" : ""}
+            </button>
+            <button onClick={() => setShowNews(true)}
+              className="relative rounded-lg border px-3 py-1.5 text-sm hover:border-primary">
+              📰 News
+              {newsUnread && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                  {newsCount > 9 ? "9+" : newsCount}
+                </span>
+              )}
+            </button>
+            {!giftClaimed && (
+              <button onClick={() => setShowFarewell(true)}
+                className="rounded-lg border border-orange-500/60 bg-orange-500/10 px-3 py-1.5 text-sm hover:bg-orange-500/20">
+                🎁 Farewell
+              </button>
+            )}
             <button onClick={() => setShowRegions(true)}
               className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🗺️ Regionen</button>
             <button onClick={() => setShowRedeem(true)}
@@ -248,6 +293,9 @@ export function CarSelect({
         {showRegions && <RegionPanel onClose={() => setShowRegions(false)} />}
         {showDaily && <DailyRewardDialog onClose={() => setShowDaily(false)} />}
         {showPrestige && <PrestigePanel onClose={() => setShowPrestige(false)} />}
+        {showPremium && <PremiumPassPanel onClose={() => setShowPremium(false)} />}
+        {showNews && <NewsPanel onClose={() => setShowNews(false)} />}
+        {showFarewell && <FarewellGiftDialog onClose={() => setShowFarewell(false)} />}
 
         <section className="mt-12">
           <h2 className="text-4xl font-bold tracking-tight md:text-5xl">{headline ?? "Wähle dein Fahrzeug."}</h2>

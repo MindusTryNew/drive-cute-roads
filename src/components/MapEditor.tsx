@@ -14,13 +14,62 @@ const defaultFor = (tool: Exclude<Tool, "select">, x: number, z: number): MapObj
   }
 };
 
-export function MapEditor({ onBack }: { onBack: () => void }) {
+export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestDrive?: (mod: Mod) => void }) {
   const mountRef = useRef<HTMLDivElement>(null);
   const [tool, setTool] = useState<Tool>("building");
   const [objects, setObjects] = useState<MapObject[]>([]);
   const [selected, setSelected] = useState<number | null>(null);
   const [mapName, setMapName] = useState("Meine Karte");
   const [author, setAuthor] = useState("anon");
+  const [snap, setSnap] = useState(true);
+  const [gridSize, setGridSize] = useState(5);
+
+  // Undo / redo history
+  const [history, setHistory] = useState<MapObject[][]>([[]]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  const historyRef = useRef(history); historyRef.current = history;
+  const indexRef = useRef(historyIndex); indexRef.current = historyIndex;
+
+  const applyObjects = (next: MapObject[], newSelection?: number | null) => {
+    setObjects(next);
+    const i = indexRef.current;
+    const nextHistory = [...historyRef.current.slice(0, i + 1), next];
+    setHistory(nextHistory);
+    setHistoryIndex(i + 1);
+    if (newSelection !== undefined) setSelected(newSelection);
+  };
+
+  const undo = () => {
+    const i = indexRef.current;
+    if (i <= 0) return;
+    setObjects(historyRef.current[i - 1]);
+    setHistoryIndex(i - 1);
+    setSelected(null);
+  };
+  const redo = () => {
+    const i = indexRef.current;
+    if (i >= historyRef.current.length - 1) return;
+    setObjects(historyRef.current[i + 1]);
+    setHistoryIndex(i + 1);
+    setSelected(null);
+  };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        e.preventDefault();
+        e.shiftKey ? redo() : undo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === "y")) {
+        e.preventDefault();
+        redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  const snapVal = (v: number) => snap ? Math.round(v / gridSize) * gridSize : Math.round(v);
+
   const objectsRef = useRef(objects);
   objectsRef.current = objects;
   const toolRef = useRef(tool);
@@ -126,12 +175,8 @@ export function MapEditor({ onBack }: { onBack: () => void }) {
         } else setSelected(null);
         return;
       }
-      const obj = defaultFor(t, Math.round(p.x), Math.round(p.z));
-      setObjects((os) => {
-        const next = [...os, obj];
-        setSelected(next.length - 1);
-        return next;
-      });
+      const obj = defaultFor(t, snapVal(p.x), snapVal(p.z));
+      applyObjects([...objectsRef.current, obj], objectsRef.current.length);
     };
 
     r.domElement.addEventListener("mousedown", onMouseDown);
@@ -180,12 +225,17 @@ export function MapEditor({ onBack }: { onBack: () => void }) {
 
   const patchSelected = (patch: Partial<MapObject>) => {
     if (selected === null) return;
-    setObjects((os) => os.map((o, i) => (i === selected ? ({ ...o, ...patch } as MapObject) : o)));
+    applyObjects(objects.map((o, i) => (i === selected ? ({ ...o, ...patch } as MapObject) : o)));
   };
   const removeSelected = () => {
     if (selected === null) return;
-    setObjects((os) => os.filter((_, i) => i !== selected));
-    setSelected(null);
+    applyObjects(objects.filter((_, i) => i !== selected), null);
+  };
+  const duplicateSelected = () => {
+    if (selected === null) return;
+    const src = objects[selected];
+    const copy: MapObject = { ...src, x: src.x + gridSize, z: src.z + gridSize } as MapObject;
+    applyObjects([...objects, copy], objects.length);
   };
 
   const buildMod = (): Mod => ({
@@ -230,6 +280,13 @@ export function MapEditor({ onBack }: { onBack: () => void }) {
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Map-Editor</p>
           </div>
 
+          <div className="flex gap-2">
+            <button onClick={undo} disabled={historyIndex <= 0}
+              className="flex-1 rounded-lg border px-2 py-1.5 text-xs hover:border-primary disabled:opacity-40">↩️ Rückgängig</button>
+            <button onClick={redo} disabled={historyIndex >= history.length - 1}
+              className="flex-1 rounded-lg border px-2 py-1.5 text-xs hover:border-primary disabled:opacity-40">↪️ Wiederholen</button>
+          </div>
+
           <input
             value={mapName} onChange={(e) => setMapName(e.target.value)}
             className="rounded-lg border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
@@ -240,6 +297,18 @@ export function MapEditor({ onBack }: { onBack: () => void }) {
             className="rounded-lg border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
             placeholder="Autor"
           />
+
+          <div className="flex items-center gap-2 rounded-lg border p-2">
+            <input id="snap" type="checkbox" checked={snap} onChange={(e) => setSnap(e.target.checked)} className="h-4 w-4" />
+            <label htmlFor="snap" className="flex-1 text-xs">Snap an Raster</label>
+            <select value={gridSize} onChange={(e) => setGridSize(parseInt(e.target.value))}
+              className="rounded border bg-background px-1 py-0.5 text-xs">
+              <option value={1}>1m</option>
+              <option value={5}>5m</option>
+              <option value={10}>10m</option>
+              <option value={25}>25m</option>
+            </select>
+          </div>
 
           <div className="mt-2">
             <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Werkzeuge</p>
@@ -252,12 +321,18 @@ export function MapEditor({ onBack }: { onBack: () => void }) {
               ))}
             </div>
             <p className="mt-2 font-mono text-[9px] text-muted-foreground">
-              Linksklick platziert · Rechts-Drag: rotieren · Mittel-Drag: verschieben · Wheel: zoomen
+              Linksklick platziert · Rechts-Drag: rotieren · Mittel-Drag: verschieben · Wheel: zoomen · Strg+Z / Strg+Y
             </p>
           </div>
 
           <div className="mt-auto flex flex-col gap-2 pt-2">
             <p className="font-mono text-[10px] text-muted-foreground">{objects.length} Objekt(e)</p>
+            {onTestDrive && (
+              <button onClick={() => onTestDrive(buildMod())}
+                className="rounded-lg border border-primary/60 bg-primary/10 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/20">
+                🏎️ Testfahrt
+              </button>
+            )}
             <button onClick={install}
               className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
               🗺️ In Welt installieren
@@ -266,7 +341,7 @@ export function MapEditor({ onBack }: { onBack: () => void }) {
               className="rounded-lg border px-3 py-2 text-sm hover:border-primary">
               💾 Als Mod exportieren
             </button>
-            <button onClick={() => { if (confirm("Alle Objekte löschen?")) { setObjects([]); setSelected(null); } }}
+            <button onClick={() => { if (confirm("Alle Objekte löschen?")) { applyObjects([], null); } }}
               className="rounded-lg border border-destructive/40 px-3 py-2 text-xs text-destructive hover:bg-destructive/10">
               Alles löschen
             </button>
@@ -278,7 +353,10 @@ export function MapEditor({ onBack }: { onBack: () => void }) {
           <aside className="pointer-events-auto ml-auto w-72 border-l bg-card/80 p-4 backdrop-blur-md">
             <div className="flex items-center justify-between">
               <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Eigenschaften</p>
-              <button onClick={removeSelected} className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive">✕</button>
+              <div className="flex gap-1">
+                <button onClick={duplicateSelected} title="Duplizieren" className="rounded-md border px-2 py-1 text-xs hover:border-primary">⧉</button>
+                <button onClick={removeSelected} className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive">✕</button>
+              </div>
             </div>
             <p className="mt-1 font-bold capitalize">{sel.type}</p>
 
@@ -299,9 +377,20 @@ export function MapEditor({ onBack }: { onBack: () => void }) {
               {sel.type === "checkpoint" && (
                 <NumField label="Radius" value={sel.radius} onChange={(v) => patchSelected({ radius: v } as Partial<MapObject>)} min={1} max={30} />
               )}
-              {sel.type === "prop" && (
+              {sel.type === "prop" && (<>
                 <NumField label="Größe" value={sel.size} onChange={(v) => patchSelected({ size: v } as Partial<MapObject>)} min={0.2} max={40} />
-              )}
+                <div>
+                  <label className="mb-1 block font-mono text-[10px] text-muted-foreground">Form</label>
+                  <select value={(sel as Extract<MapObject, { type: "prop" }>).shape}
+                    onChange={(e) => patchSelected({ shape: e.target.value as Extract<MapObject, { type: "prop" }>["shape"] } as Partial<MapObject>)}
+                    className="w-full rounded-md border bg-background px-2 py-1">
+                    <option value="box">Würfel</option>
+                    <option value="sphere">Kugel</option>
+                    <option value="cone">Kegel</option>
+                    <option value="cylinder">Zylinder</option>
+                  </select>
+                </div>
+              </>)}
               <div>
                 <label className="mb-1 block font-mono text-[10px] text-muted-foreground">Farbe</label>
                 <input type="color" value={sel.color}
