@@ -232,6 +232,8 @@ export function Simulator({
     // ---- Open-World Sammel-Paket-Drops (1.2 % Chance / Tick) ----
     type WorldPack = { type: PackType; group: THREE.Group; pos: THREE.Vector3 };
     const worldPacks: WorldPack[] = [];
+    const trail: THREE.Vector3[] = [];
+    let trailTick = 0;
     let packTick = 0;
     const spawnWorldPack = () => {
       if (worldPacks.length >= 3) return;
