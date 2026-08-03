@@ -659,6 +659,15 @@ export function Simulator({
       ctx.rotate(rot);
       ctx.translate(-p1.group.position.x * scale, -p1.group.position.z * scale);
 
+      // Regionen-Hintergründe
+      for (const r of REGIONS) {
+        ctx.fillStyle = r.color + "18";
+        ctx.fillRect(r.bounds.minX * scale, r.bounds.minZ * scale, (r.bounds.maxX - r.bounds.minX) * scale, (r.bounds.maxZ - r.bounds.minZ) * scale);
+        ctx.strokeStyle = r.color + "44";
+        ctx.lineWidth = 1;
+        ctx.strokeRect(r.bounds.minX * scale, r.bounds.minZ * scale, (r.bounds.maxX - r.bounds.minX) * scale, (r.bounds.maxZ - r.bounds.minZ) * scale);
+      }
+
       // Offroad-Zone (Hügel) mit Konturen-Fill
       ctx.fillStyle = "#2d3520";
       ctx.fillRect(60 * scale, -400 * scale, 340 * scale, 340 * scale);
@@ -708,6 +717,29 @@ export function Simulator({
         ctx.fillRect(b.x * scale - (b.w * scale) / 2, b.z * scale - (b.d * scale) / 2, Math.max(1, b.w * scale), Math.max(1, b.d * scale));
       }
 
+      // Fahrzeug-Trail
+      if (trail.length > 1) {
+        ctx.beginPath();
+        ctx.moveTo(trail[0].x * scale, trail[0].z * scale);
+        for (let i = 1; i < trail.length; i++) ctx.lineTo(trail[i].x * scale, trail[i].z * scale);
+        ctx.strokeStyle = spec.appearance.primaryColor + "66";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+
+      // Navigations-Ziel-Linie
+      if (navDest) {
+        ctx.save();
+        ctx.setLineDash([4, 4]);
+        ctx.strokeStyle = "#5b8def";
+        ctx.lineWidth = 1.2;
+        ctx.beginPath();
+        ctx.moveTo(p1.group.position.x * scale, p1.group.position.z * scale);
+        ctx.lineTo(navDest.x * scale, navDest.z * scale);
+        ctx.stroke();
+        ctx.restore();
+      }
+
       // Missions-Marker mit Pin + Distanz
       const drawPin = (x: number, z: number, color: string, label?: string) => {
         ctx.save();
@@ -737,6 +769,22 @@ export function Simulator({
 
       if (pickupMarker) drawPin(pickupPos.x, pickupPos.z, "#f6d96a", `${distTo(pickupPos)}m`);
       if (dropMarker) drawPin(dropPos.x, dropPos.z, "#4ade80", `${distTo(dropPos)}m`);
+
+      // Welt-Pakete
+      for (const wp of worldPacks) {
+        const meta = PACK_META[wp.type];
+        ctx.save();
+        ctx.translate(wp.pos.x * scale, wp.pos.z * scale);
+        ctx.rotate(-rot);
+        ctx.fillStyle = meta.color;
+        ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = "#fff";
+        ctx.font = "10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(meta.emoji, 0, 0);
+        ctx.restore();
+      }
 
       // Remote Spieler-Dreiecke mit Farbe
       for (const r of remotes.values()) {
@@ -772,6 +820,20 @@ export function Simulator({
       ctx.fill(); ctx.stroke();
       ctx.restore();
 
+      // Regionen-Labels (immer aufrecht)
+      ctx.save();
+      ctx.rotate(-rot);
+      for (const r of REGIONS) {
+        const rx = (r.bounds.minX + r.bounds.maxX) / 2 * scale;
+        const rz = (r.bounds.minZ + r.bounds.maxZ) / 2 * scale;
+        ctx.fillStyle = r.color;
+        ctx.font = "bold 10px sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${r.emoji} ${r.name}`, rx, rz);
+      }
+      ctx.restore();
+
       ctx.restore(); // Ende Clip
 
       // Kompass-Ring mit Grad-Marken
@@ -800,6 +862,18 @@ export function Simulator({
       ctx.textAlign = "center";
       ctx.fillText("N", 0, -(MM_SIZE / 2 - 14));
       ctx.restore();
+
+      // Aktuelle Region unten
+      const here = regionAt(p1.group.position.x, p1.group.position.z);
+      if (here) {
+        const r = REGIONS_BY_ID[here];
+        ctx.fillStyle = "rgba(13,18,32,0.8)";
+        ctx.fillRect(4, MM_SIZE - 18, MM_SIZE - 8, 14);
+        ctx.fillStyle = r.color;
+        ctx.font = "9px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText(`${r.emoji} ${r.name}`, cx, MM_SIZE - 7);
+      }
     };
 
     animate();
