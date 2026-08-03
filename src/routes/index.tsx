@@ -90,7 +90,12 @@ function Index() {
     return <TutorialScreen onBack={() => setView({ kind: "mods" })} />;
   }
   if (view.kind === "map-editor") {
-    return <MapEditor onBack={() => setView({ kind: "garage" })} />;
+    return (
+      <MapEditor
+        onBack={() => setView({ kind: "garage" })}
+        onTestDrive={(mod) => setView({ kind: "sim-solo", spec: presetToSpec("roadster"), mapMod: mod })}
+      />
+    );
   }
   if (view.kind === "inventory") {
     return <Inventory onBack={() => setView({ kind: "garage" })} />;
