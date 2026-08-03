@@ -109,6 +109,9 @@ export function Simulator({
 
     // Map-Mods (installiert) in die Szene mounten
     mountMapMods(scene, world, preset.shadows);
+    if (mapMod?.kind === "map") {
+      mountMapObjects(scene, world, mapMod.payload.objects, preset.shadows);
+    }
 
     const spawn = REGIONS_BY_ID[getActiveRegion()]?.spawn ?? { x: 60, z: 0 };
     const p1 = createPlayer(spec, scene, preset.shadows);
