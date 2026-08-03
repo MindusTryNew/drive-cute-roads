@@ -280,6 +280,13 @@ export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestD
             <p className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Map-Editor</p>
           </div>
 
+          <div className="flex gap-2">
+            <button onClick={undo} disabled={historyIndex <= 0}
+              className="flex-1 rounded-lg border px-2 py-1.5 text-xs hover:border-primary disabled:opacity-40">↩️ Rückgängig</button>
+            <button onClick={redo} disabled={historyIndex >= history.length - 1}
+              className="flex-1 rounded-lg border px-2 py-1.5 text-xs hover:border-primary disabled:opacity-40">↪️ Wiederholen</button>
+          </div>
+
           <input
             value={mapName} onChange={(e) => setMapName(e.target.value)}
             className="rounded-lg border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
@@ -290,6 +297,18 @@ export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestD
             className="rounded-lg border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary"
             placeholder="Autor"
           />
+
+          <div className="flex items-center gap-2 rounded-lg border p-2">
+            <input id="snap" type="checkbox" checked={snap} onChange={(e) => setSnap(e.target.checked)} className="h-4 w-4" />
+            <label htmlFor="snap" className="flex-1 text-xs">Snap an Raster</label>
+            <select value={gridSize} onChange={(e) => setGridSize(parseInt(e.target.value))}
+              className="rounded border bg-background px-1 py-0.5 text-xs">
+              <option value={1}>1m</option>
+              <option value={5}>5m</option>
+              <option value={10}>10m</option>
+              <option value={25}>25m</option>
+            </select>
+          </div>
 
           <div className="mt-2">
             <p className="mb-1 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Werkzeuge</p>
@@ -302,12 +321,18 @@ export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestD
               ))}
             </div>
             <p className="mt-2 font-mono text-[9px] text-muted-foreground">
-              Linksklick platziert · Rechts-Drag: rotieren · Mittel-Drag: verschieben · Wheel: zoomen
+              Linksklick platziert · Rechts-Drag: rotieren · Mittel-Drag: verschieben · Wheel: zoomen · Strg+Z / Strg+Y
             </p>
           </div>
 
           <div className="mt-auto flex flex-col gap-2 pt-2">
             <p className="font-mono text-[10px] text-muted-foreground">{objects.length} Objekt(e)</p>
+            {onTestDrive && (
+              <button onClick={() => onTestDrive(buildMod())}
+                className="rounded-lg border border-primary/60 bg-primary/10 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/20">
+                🏎️ Testfahrt
+              </button>
+            )}
             <button onClick={install}
               className="rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground">
               🗺️ In Welt installieren
@@ -316,7 +341,7 @@ export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestD
               className="rounded-lg border px-3 py-2 text-sm hover:border-primary">
               💾 Als Mod exportieren
             </button>
-            <button onClick={() => { if (confirm("Alle Objekte löschen?")) { setObjects([]); setSelected(null); } }}
+            <button onClick={() => { if (confirm("Alle Objekte löschen?")) { applyObjects([], null); } }}
               className="rounded-lg border border-destructive/40 px-3 py-2 text-xs text-destructive hover:bg-destructive/10">
               Alles löschen
             </button>
