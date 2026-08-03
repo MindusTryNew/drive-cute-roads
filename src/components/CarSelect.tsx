@@ -114,13 +114,24 @@ export function CarSelect({
     const un = subscribeCoins(setCoins);
     const un2 = subscribeDevMode(setDev);
     const un3 = subscribePrestige(() => { setPrestigeLevel(getLevel()); setPrestigePoints(getPoints()); });
+
+    const updateMeta = () => {
+      setPremiumActive(isPremiumActive());
+      setPremiumUntil(getPaidUntil());
+      setNewsUnread(hasUnread());
+      setNewsCount(unreadCount());
+      setGiftClaimed(hasClaimedFarewellGift());
+    };
+    updateMeta();
+    const metaInterval = window.setInterval(updateMeta, 2000);
+
     // Daily-Popup: nur einmal pro Session, wenn heute noch nicht abgeholt
     const s = readDailyState();
     if (s.canClaim) {
       const t = window.setTimeout(() => setShowDaily(true), 600);
-      return () => { un(); un2(); un3(); window.clearTimeout(t); };
+      return () => { un(); un2(); un3(); window.clearTimeout(t); window.clearInterval(metaInterval); };
     }
-    return () => { un(); un2(); un3(); };
+    return () => { un(); un2(); un3(); window.clearInterval(metaInterval); };
   }, []);
 
   const refresh = () => {
