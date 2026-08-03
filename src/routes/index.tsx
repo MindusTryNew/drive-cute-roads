@@ -14,6 +14,7 @@ import { CollectionCatalog } from "@/components/CollectionCatalog";
 import { BundleShop } from "@/components/BundleShop";
 import { presetToSpec, customToSpec, type CarSpec } from "@/lib/car-spec";
 import type { CustomCar } from "@/lib/garage";
+import type { Mod } from "@/lib/mods";
 
 export const Route = createFileRoute("/")({
   head: () => ({
