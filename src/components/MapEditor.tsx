@@ -225,12 +225,17 @@ export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestD
 
   const patchSelected = (patch: Partial<MapObject>) => {
     if (selected === null) return;
-    setObjects((os) => os.map((o, i) => (i === selected ? ({ ...o, ...patch } as MapObject) : o)));
+    applyObjects(objects.map((o, i) => (i === selected ? ({ ...o, ...patch } as MapObject) : o)));
   };
   const removeSelected = () => {
     if (selected === null) return;
-    setObjects((os) => os.filter((_, i) => i !== selected));
-    setSelected(null);
+    applyObjects(objects.filter((_, i) => i !== selected), null);
+  };
+  const duplicateSelected = () => {
+    if (selected === null) return;
+    const src = objects[selected];
+    const copy: MapObject = { ...src, x: src.x + gridSize, z: src.z + gridSize } as MapObject;
+    applyObjects([...objects, copy], objects.length);
   };
 
   const buildMod = (): Mod => ({
