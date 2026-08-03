@@ -826,17 +826,21 @@ export function Simulator({
       ctx.fill(); ctx.stroke();
       ctx.restore();
 
-      // Regionen-Labels (immer aufrecht)
+      // Regionen-Labels (immer aufrecht, an Region-Mitte)
       ctx.save();
-      ctx.rotate(-rot);
+      ctx.fillStyle = "#fff";
+      ctx.font = "bold 10px sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
       for (const r of REGIONS) {
         const rx = (r.bounds.minX + r.bounds.maxX) / 2 * scale;
         const rz = (r.bounds.minZ + r.bounds.maxZ) / 2 * scale;
+        ctx.save();
+        ctx.translate(rx, rz);
+        ctx.rotate(-rot);
         ctx.fillStyle = r.color;
-        ctx.font = "bold 10px sans-serif";
-        ctx.textAlign = "center";
-        ctx.textBaseline = "middle";
-        ctx.fillText(`${r.emoji} ${r.name}`, rx, rz);
+        ctx.fillText(`${r.emoji} ${r.name}`, 0, 0);
+        ctx.restore();
       }
       ctx.restore();
 
