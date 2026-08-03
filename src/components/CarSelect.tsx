@@ -213,6 +213,26 @@ export function CarSelect({
               <button onClick={onOpenBundleShop}
                 className="rounded-lg border border-primary/60 bg-primary/10 px-3 py-1.5 text-sm hover:bg-primary/20">🎁 Bundles</button>
             )}
+            <button onClick={() => setShowPremium(true)}
+              className={`rounded-lg border px-3 py-1.5 text-sm hover:border-primary ${premiumActive ? "border-primary/60 bg-primary/10" : ""}`}
+              title={premiumActive && premiumUntil ? `Premium aktiv noch ${formatRemaining(Math.max(0, premiumUntil - Date.now()))}` : "Premium-Pass"}>
+              💎 Premium{premiumActive ? " ✓" : ""}
+            </button>
+            <button onClick={() => setShowNews(true)}
+              className="relative rounded-lg border px-3 py-1.5 text-sm hover:border-primary">
+              📰 News
+              {newsUnread && (
+                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
+                  {newsCount > 9 ? "9+" : newsCount}
+                </span>
+              )}
+            </button>
+            {!giftClaimed && (
+              <button onClick={() => setShowFarewell(true)}
+                className="rounded-lg border border-orange-500/60 bg-orange-500/10 px-3 py-1.5 text-sm hover:bg-orange-500/20">
+                🎁 Farewell
+              </button>
+            )}
             <button onClick={() => setShowRegions(true)}
               className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🗺️ Regionen</button>
             <button onClick={() => setShowRedeem(true)}
