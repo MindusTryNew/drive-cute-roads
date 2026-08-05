@@ -75,54 +75,140 @@ export const TuningPresetPayloadSchema = z.object({
   patch: TuningSchema.partial(),
 });
 
+/* ---------------------------- v3 Payloads ----------------------------- */
+
+const hex = z.string().regex(/^#[0-9a-f]{6}$/i);
+
+// Skin: Lackierung/Material-Overrides für Autos.
+export const SkinPayloadSchema = z.object({
+  primaryColor: hex,
+  secondaryColor: hex.optional(),
+  wheelColor: hex.optional(),
+  metalness: z.number().min(0).max(1).default(0.5),
+  roughness: z.number().min(0).max(1).default(0.4),
+  emissive: hex.optional(),
+  emissiveIntensity: z.number().min(0).max(4).default(0),
+  decalText: z.string().max(12).optional(),
+  targetBody: z.enum(["any", "roadster", "suv", "racer", "truck", "kompakt"]).default("any"),
+});
+export type SkinPayload = z.infer<typeof SkinPayloadSchema>;
+
+// Physik-Mod: globale Multiplikatoren (geklemmt, damit nichts einfriert).
+const mult = (def = 1) => z.number().min(0.1).max(10).default(def);
+export const PhysicsPayloadSchema = z.object({
+  gravity: mult(),
+  friction: mult(),
+  drag: mult(),
+  drift: mult(),
+  accel: mult(),
+  topSpeed: mult(),
+  grip: mult(),
+  brake: mult(),
+  steer: mult(),
+});
+export type PhysicsPayload = z.infer<typeof PhysicsPayloadSchema>;
+
+// Wetter/Zeit-Mod.
+export const WeatherPayloadSchema = z.object({
+  fixedTime: z.number().min(0).max(1).nullable().default(null),
+  fogNear: z.number().min(1).max(4000).default(60),
+  fogFar: z.number().min(2).max(8000).default(900),
+  fogColor: hex.optional(),
+  skyColor: hex.optional(),
+  cycleSpeed: z.number().min(0).max(10).default(1),
+});
+export type WeatherPayload = z.infer<typeof WeatherPayloadSchema>;
+
+// Missions-Mod: eigene Missionen.
+export const MissionPayloadSchema = z.object({
+  missions: z.array(z.object({
+    id: z.string().min(1).max(40),
+    title: z.string().min(2).max(60),
+    desc: z.string().max(160).default(""),
+    goalKind: z.enum(["distance", "topSpeed", "drift", "airtime", "collect"]),
+    goal: z.number().min(1).max(1_000_000),
+    reward: z.number().min(1).max(100_000).default(500),
+  })).min(1).max(50),
+});
+export type MissionPayload = z.infer<typeof MissionPayloadSchema>;
+
+// Kollektions-Mod: eigene Sammelitems.
+export const CollectiblePayloadSchema = z.object({
+  items: z.array(z.object({
+    id: z.string().min(1).max(40),
+    name: z.string().min(1).max(48),
+    desc: z.string().max(160).default(""),
+    emoji: z.string().min(1).max(4).default("🎁"),
+    rarity: z.enum(["common", "uncommon", "rare", "epic", "legendary", "mythical", "cosmic", "celestial"]).default("rare"),
+  })).min(1).max(200),
+});
+export type CollectiblePayload = z.infer<typeof CollectiblePayloadSchema>;
+
+// Sound-Mod: Motor-/Reifen-Sounds (Data-URL oder https-URL).
+const soundSrc = z.string().max(2_000_000).refine(
+  (s) => s.startsWith("data:audio/") || s.startsWith("https://"),
+  "Sound muss eine data:audio/…- oder https://-URL sein",
+);
+export const SoundPayloadSchema = z.object({
+  engine: soundSrc.optional(),
+  tires: soundSrc.optional(),
+  horn: soundSrc.optional(),
+  volume: z.number().min(0).max(1).default(0.6),
+  pitchBase: z.number().min(0.2).max(3).default(1),
+});
+export type SoundPayload = z.infer<typeof SoundPayloadSchema>;
+
 /* --------------------------------------------------------------------- */
 /* Envelope                                                               */
 /* --------------------------------------------------------------------- */
 
-export const ModSchema = z.discriminatedUnion("kind", [
+const envelope = <K extends string, P extends z.ZodTypeAny>(kind: K, payload: P) =>
   z.object({
     format: z.literal("driftlab.mod"),
-    version: z.literal(2),
-    kind: z.literal("car"),
+    version: z.union([z.literal(2), z.literal(3)]),
+    kind: z.literal(kind),
     id: z.string(),
     name: z.string().min(2).max(60),
     author: z.string().min(1).max(24).default("anon"),
     description: z.string().max(500).default(""),
-    payload: CustomCarSchema,
-  }),
-  z.object({
-    format: z.literal("driftlab.mod"),
-    version: z.literal(2),
-    kind: z.literal("map"),
-    id: z.string(),
-    name: z.string().min(2).max(60),
-    author: z.string().min(1).max(24).default("anon"),
-    description: z.string().max(500).default(""),
-    payload: MapPayloadSchema,
-  }),
-  z.object({
-    format: z.literal("driftlab.mod"),
-    version: z.literal(2),
-    kind: z.literal("part-pack"),
-    id: z.string(),
-    name: z.string().min(2).max(60),
-    author: z.string().min(1).max(24).default("anon"),
-    description: z.string().max(500).default(""),
-    payload: PartPackPayloadSchema,
-  }),
-  z.object({
-    format: z.literal("driftlab.mod"),
-    version: z.literal(2),
-    kind: z.literal("tuning-preset"),
-    id: z.string(),
-    name: z.string().min(2).max(60),
-    author: z.string().min(1).max(24).default("anon"),
-    description: z.string().max(500).default(""),
-    payload: TuningPresetPayloadSchema,
-  }),
+    /** Ladereihenfolge — kleinere Werte zuerst. */
+    priority: z.number().int().min(-100).max(100).default(0),
+    payload,
+  });
+
+export const SingleModSchema = z.discriminatedUnion("kind", [
+  envelope("car", CustomCarSchema),
+  envelope("map", MapPayloadSchema),
+  envelope("part-pack", PartPackPayloadSchema),
+  envelope("tuning-preset", TuningPresetPayloadSchema),
+  envelope("skin", SkinPayloadSchema),
+  envelope("physics", PhysicsPayloadSchema),
+  envelope("weather", WeatherPayloadSchema),
+  envelope("mission", MissionPayloadSchema),
+  envelope("collectible", CollectiblePayloadSchema),
+  envelope("sound", SoundPayloadSchema),
 ]);
+export type SingleMod = z.infer<typeof SingleModSchema>;
+
+// Mod-Pack: bündelt mehrere Mods in einer Datei.
+export const PackSchema = z.object({
+  format: z.literal("driftlab.mod"),
+  version: z.literal(3),
+  kind: z.literal("pack"),
+  id: z.string(),
+  name: z.string().min(2).max(60),
+  author: z.string().min(1).max(24).default("anon"),
+  description: z.string().max(500).default(""),
+  priority: z.number().int().min(-100).max(100).default(0),
+  payload: z.object({
+    mods: z.array(SingleModSchema).min(1).max(40),
+  }),
+});
+
+export const ModSchema = z.union([SingleModSchema, PackSchema]);
 export type Mod = z.infer<typeof ModSchema>;
 export type ModKind = Mod["kind"];
+
 
 /* --------------------------------------------------------------------- */
 /* Parser + Legacy-Konvertierung                                          */
