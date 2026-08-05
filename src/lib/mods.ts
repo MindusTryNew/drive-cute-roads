@@ -75,107 +75,214 @@ export const TuningPresetPayloadSchema = z.object({
   patch: TuningSchema.partial(),
 });
 
+/* ---------------------------- v3 Payloads ----------------------------- */
+
+const hex = z.string().regex(/^#[0-9a-f]{6}$/i);
+
+// Skin: Lackierung/Material-Overrides für Autos.
+export const SkinPayloadSchema = z.object({
+  primaryColor: hex,
+  secondaryColor: hex.optional(),
+  wheelColor: hex.optional(),
+  metalness: z.number().min(0).max(1).default(0.5),
+  roughness: z.number().min(0).max(1).default(0.4),
+  emissive: hex.optional(),
+  emissiveIntensity: z.number().min(0).max(4).default(0),
+  decalText: z.string().max(12).optional(),
+  targetBody: z.enum(["any", "roadster", "suv", "racer", "truck", "kompakt"]).default("any"),
+});
+export type SkinPayload = z.infer<typeof SkinPayloadSchema>;
+
+// Physik-Mod: globale Multiplikatoren (geklemmt, damit nichts einfriert).
+const mult = (def = 1) => z.number().min(0.1).max(10).default(def);
+export const PhysicsPayloadSchema = z.object({
+  gravity: mult(),
+  friction: mult(),
+  drag: mult(),
+  drift: mult(),
+  accel: mult(),
+  topSpeed: mult(),
+  grip: mult(),
+  brake: mult(),
+  steer: mult(),
+});
+export type PhysicsPayload = z.infer<typeof PhysicsPayloadSchema>;
+
+// Wetter/Zeit-Mod.
+export const WeatherPayloadSchema = z.object({
+  fixedTime: z.number().min(0).max(1).nullable().default(null),
+  fogNear: z.number().min(1).max(4000).default(60),
+  fogFar: z.number().min(2).max(8000).default(900),
+  fogColor: hex.optional(),
+  skyColor: hex.optional(),
+  cycleSpeed: z.number().min(0).max(10).default(1),
+});
+export type WeatherPayload = z.infer<typeof WeatherPayloadSchema>;
+
+// Missions-Mod: eigene Missionen.
+export const MissionPayloadSchema = z.object({
+  missions: z.array(z.object({
+    id: z.string().min(1).max(40),
+    title: z.string().min(2).max(60),
+    desc: z.string().max(160).default(""),
+    goalKind: z.enum(["distance", "topSpeed", "drift", "airtime", "collect"]),
+    goal: z.number().min(1).max(1_000_000),
+    reward: z.number().min(1).max(100_000).default(500),
+  })).min(1).max(50),
+});
+export type MissionPayload = z.infer<typeof MissionPayloadSchema>;
+
+// Kollektions-Mod: eigene Sammelitems.
+export const CollectiblePayloadSchema = z.object({
+  items: z.array(z.object({
+    id: z.string().min(1).max(40),
+    name: z.string().min(1).max(48),
+    desc: z.string().max(160).default(""),
+    emoji: z.string().min(1).max(4).default("🎁"),
+    rarity: z.enum(["common", "uncommon", "rare", "epic", "legendary", "mythical", "cosmic", "celestial"]).default("rare"),
+  })).min(1).max(200),
+});
+export type CollectiblePayload = z.infer<typeof CollectiblePayloadSchema>;
+
+// Sound-Mod: Motor-/Reifen-Sounds (Data-URL oder https-URL).
+const soundSrc = z.string().max(2_000_000).refine(
+  (s) => s.startsWith("data:audio/") || s.startsWith("https://"),
+  "Sound muss eine data:audio/…- oder https://-URL sein",
+);
+export const SoundPayloadSchema = z.object({
+  engine: soundSrc.optional(),
+  tires: soundSrc.optional(),
+  horn: soundSrc.optional(),
+  volume: z.number().min(0).max(1).default(0.6),
+  pitchBase: z.number().min(0.2).max(3).default(1),
+});
+export type SoundPayload = z.infer<typeof SoundPayloadSchema>;
+
 /* --------------------------------------------------------------------- */
 /* Envelope                                                               */
 /* --------------------------------------------------------------------- */
 
-export const ModSchema = z.discriminatedUnion("kind", [
+const envelope = <K extends string, P extends z.ZodTypeAny>(kind: K, payload: P) =>
   z.object({
     format: z.literal("driftlab.mod"),
-    version: z.literal(2),
-    kind: z.literal("car"),
+    version: z.union([z.literal(2), z.literal(3)]),
+    kind: z.literal(kind),
     id: z.string(),
     name: z.string().min(2).max(60),
     author: z.string().min(1).max(24).default("anon"),
     description: z.string().max(500).default(""),
-    payload: CustomCarSchema,
-  }),
-  z.object({
-    format: z.literal("driftlab.mod"),
-    version: z.literal(2),
-    kind: z.literal("map"),
-    id: z.string(),
-    name: z.string().min(2).max(60),
-    author: z.string().min(1).max(24).default("anon"),
-    description: z.string().max(500).default(""),
-    payload: MapPayloadSchema,
-  }),
-  z.object({
-    format: z.literal("driftlab.mod"),
-    version: z.literal(2),
-    kind: z.literal("part-pack"),
-    id: z.string(),
-    name: z.string().min(2).max(60),
-    author: z.string().min(1).max(24).default("anon"),
-    description: z.string().max(500).default(""),
-    payload: PartPackPayloadSchema,
-  }),
-  z.object({
-    format: z.literal("driftlab.mod"),
-    version: z.literal(2),
-    kind: z.literal("tuning-preset"),
-    id: z.string(),
-    name: z.string().min(2).max(60),
-    author: z.string().min(1).max(24).default("anon"),
-    description: z.string().max(500).default(""),
-    payload: TuningPresetPayloadSchema,
-  }),
+    /** Ladereihenfolge — kleinere Werte zuerst. */
+    priority: z.number().int().min(-100).max(100).default(0),
+    payload,
+  });
+
+export const SingleModSchema = z.discriminatedUnion("kind", [
+  envelope("car", CustomCarSchema),
+  envelope("map", MapPayloadSchema),
+  envelope("part-pack", PartPackPayloadSchema),
+  envelope("tuning-preset", TuningPresetPayloadSchema),
+  envelope("skin", SkinPayloadSchema),
+  envelope("physics", PhysicsPayloadSchema),
+  envelope("weather", WeatherPayloadSchema),
+  envelope("mission", MissionPayloadSchema),
+  envelope("collectible", CollectiblePayloadSchema),
+  envelope("sound", SoundPayloadSchema),
 ]);
+export type SingleMod = z.infer<typeof SingleModSchema>;
+
+// Mod-Pack: bündelt mehrere Mods in einer Datei.
+export const PackSchema = z.object({
+  format: z.literal("driftlab.mod"),
+  version: z.literal(3),
+  kind: z.literal("pack"),
+  id: z.string(),
+  name: z.string().min(2).max(60),
+  author: z.string().min(1).max(24).default("anon"),
+  description: z.string().max(500).default(""),
+  priority: z.number().int().min(-100).max(100).default(0),
+  payload: z.object({
+    mods: z.array(SingleModSchema).min(1).max(40),
+  }),
+});
+
+export const ModSchema = z.union([SingleModSchema, PackSchema]);
 export type Mod = z.infer<typeof ModSchema>;
 export type ModKind = Mod["kind"];
+
 
 /* --------------------------------------------------------------------- */
 /* Parser + Legacy-Konvertierung                                          */
 /* --------------------------------------------------------------------- */
 
 /** Parst einen Mod aus einem beliebigen JSON-Wert.
- *  - Erkennt Format v2 direkt.
+ *  - Erkennt Format v2 und v3 direkt (v2 wird transparent migriert).
  *  - Konvertiert Legacy-Formate: `{ car: {...} }`, `{ version:1, type:"car", car:{...} }`
  *    und ein blankes CustomCar-Objekt werden automatisch als Car-Mod verpackt.
- *  - Wirft mit klarer Fehlermeldung falls unbekannt.
+ *  - Wirft mit lesbarer Fehlermeldung falls unbekannt.
  */
 export function parseMod(input: unknown): Mod {
-  // 1) direktes v2 Envelope?
-  const v2 = ModSchema.safeParse(input);
-  if (v2.success) return v2.data;
+  const direct = ModSchema.safeParse(input);
+  if (direct.success) return direct.data;
 
-  // 2) Legacy-Erkennung
+  // Legacy-Erkennung
   const obj = input as Record<string, unknown> | null;
   if (obj && typeof obj === "object") {
-    // { version:1, type:"car", car:{...} }
     const legacyCar =
       (obj.type === "car" && obj.car) ||
-      // { car: {...} }
       obj.car ||
-      // blankes CustomCar
       (typeof obj.tuning === "object" && obj.tuning ? obj : null);
     if (legacyCar) {
       const parsed = CustomCarSchema.safeParse(legacyCar);
-      if (parsed.success) {
-        return wrapCarMod(parsed.data);
-      }
-      throw new Error(`Ungültige Auto-Daten: ${parsed.error.issues[0]?.message ?? "Schema-Fehler"}`);
+      if (parsed.success) return wrapCarMod(parsed.data);
+      throw new Error(`Ungültige Auto-Daten: ${humanizeIssues(parsed.error.issues)}`);
     }
   }
 
-  const err = v2.error.issues[0];
   throw new Error(
-    `Kein gültiger Drift-Lab-Mod (Format v2). Fehler bei "${err?.path.join(".") || "root"}": ${err?.message}`,
+    `Kein gültiger Drift-Lab-Mod (Format v2/v3). ${humanizeIssues(direct.error.issues)}`,
   );
+}
+
+/** Übersetzt Zod-Fehler in verständliche deutsche Sätze. */
+export function humanizeIssues(issues: z.ZodIssue[]): string {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const i of issues.slice(0, 40)) {
+    const path = i.path.filter((p: string | number) => typeof p !== "number").join(".") || "root";
+
+    const line = `Feld „${path}": ${i.message}`;
+    if (seen.has(line)) continue;
+    seen.add(line);
+    out.push(line);
+    if (out.length >= 4) break;
+  }
+  return out.join(" · ");
 }
 
 export function wrapCarMod(car: CustomCar, author = "anon"): Mod {
   return {
     format: "driftlab.mod",
-    version: 2,
+    version: 3,
     kind: "car",
-    id: crypto.randomUUID(),
+    id: makeId(),
     name: car.name,
     author,
     description: "",
+    priority: 0,
     payload: car,
   };
 }
+
+/** UUID mit Fallback für Browser ohne `crypto.randomUUID`. */
+export function makeId(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch { /* ignore */ }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 
 /* --------------------------------------------------------------------- */
 /* Anwendung                                                              */
@@ -183,12 +290,15 @@ export function wrapCarMod(car: CustomCar, author = "anon"): Mod {
 
 const INSTALLED_MAP_KEY = "mods:installedMapMods";
 const INSTALLED_PRESET_KEY = "mods:installedPresets";
+/** Generische Registry für alle v3-Runtime-Mods. */
+const INSTALLED_V3_KEY = "mods:installedV3";
 
 export type InstalledMapMod = {
   id: string;
   name: string;
   author: string;
   enabled: boolean;
+  priority?: number;
   objects: MapObject[];
 };
 
@@ -196,6 +306,18 @@ export type InstalledPreset = {
   id: string;
   name: string;
   patch: Partial<Tuning>;
+};
+
+/** Ein installierter Runtime-Mod (Skin, Physik, Wetter, Mission, Item, Sound). */
+export type InstalledRuntimeMod = {
+  id: string;
+  kind: "skin" | "physics" | "weather" | "mission" | "collectible" | "sound";
+  name: string;
+  author: string;
+  enabled: boolean;
+  priority: number;
+  installedAt: number;
+  payload: unknown;
 };
 
 export function getInstalledMapMods(): InstalledMapMod[] {
@@ -218,15 +340,125 @@ export function getInstalledPresets(): InstalledPreset[] {
   }
 }
 
+export function setInstalledPresets(list: InstalledPreset[]) {
+  safeLS()?.setItem(INSTALLED_PRESET_KEY, JSON.stringify(list));
+}
+
+/** Alle v3-Runtime-Mods, sortiert nach Ladereihenfolge (priority, dann Zeit). */
+export function getRuntimeMods(): InstalledRuntimeMod[] {
+  try {
+    const list: InstalledRuntimeMod[] = JSON.parse(safeLS()?.getItem(INSTALLED_V3_KEY) ?? "[]");
+    return list.sort((a, b) => (a.priority - b.priority) || (a.installedAt - b.installedAt));
+  } catch {
+    return [];
+  }
+}
+
+export function setRuntimeMods(list: InstalledRuntimeMod[]) {
+  safeLS()?.setItem(INSTALLED_V3_KEY, JSON.stringify(list));
+  for (const l of runtimeListeners) l();
+}
+
+const runtimeListeners = new Set<() => void>();
+export function subscribeRuntimeMods(cb: () => void): () => void {
+  runtimeListeners.add(cb);
+  return () => { runtimeListeners.delete(cb); };
+}
+
+export function toggleRuntimeMod(id: string) {
+  setRuntimeMods(getRuntimeMods().map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)));
+}
+
+export function removeRuntimeMod(id: string) {
+  setRuntimeMods(getRuntimeMods().filter((m) => m.id !== id));
+}
+
+export function moveRuntimeMod(id: string, dir: -1 | 1) {
+  const list = getRuntimeMods();
+  const i = list.findIndex((m) => m.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  setRuntimeMods(list.map((m, idx) => ({ ...m, priority: idx })));
+}
+
+/** Findet Konflikte: mehrere aktive Mods desselben exklusiven Typs. */
+export function findConflicts(): string[] {
+  const active = getRuntimeMods().filter((m) => m.enabled);
+  const out: string[] = [];
+  for (const kind of ["physics", "weather", "sound"] as const) {
+    const hits = active.filter((m) => m.kind === kind);
+    if (hits.length > 1) {
+      out.push(
+        `${hits.length} aktive ${kind}-Mods (${hits.map((h) => h.name).join(", ")}) — der letzte in der Liste gewinnt.`,
+      );
+    }
+  }
+  return out;
+}
+
+function installRuntime(mod: SingleMod, kind: InstalledRuntimeMod["kind"]) {
+  const list = getRuntimeMods();
+  const filtered = list.filter((m) => m.id !== mod.id);
+  filtered.push({
+    id: mod.id,
+    kind,
+    name: mod.name,
+    author: mod.author,
+    enabled: true,
+    priority: mod.priority ?? filtered.length,
+    installedAt: Date.now(),
+    payload: mod.payload,
+  });
+  setRuntimeMods(filtered);
+}
+
 /** Wendet einen validierten Mod an — Router pro `kind`. Gibt eine
  *  User-lesbare Meldung zurück. */
 export async function applyMod(mod: Mod): Promise<string> {
+  if (mod.kind === "pack") {
+    const msgs: string[] = [];
+    for (const sub of mod.payload.mods) msgs.push(await applyMod(sub));
+    return `Mod-Pack „${mod.name}" installiert (${msgs.length} Mods).`;
+  }
   switch (mod.kind) {
     case "car": {
-      const car: CustomCar = { ...mod.payload, id: crypto.randomUUID(), createdAt: Date.now() };
+      const car: CustomCar = { ...mod.payload, id: makeId(), createdAt: Date.now() };
       saveCar(car, false);
       return `Auto „${car.name}" in die Garage übernommen.`;
     }
+    case "skin":
+      installRuntime(mod, "skin");
+      return `Skin „${mod.name}" installiert — im Auto-Editor auswählbar.`;
+    case "physics":
+      installRuntime(mod, "physics");
+      return `Physik-Mod „${mod.name}" aktiviert.`;
+    case "weather":
+      installRuntime(mod, "weather");
+      return `Wetter-Mod „${mod.name}" aktiviert.`;
+    case "mission":
+      installRuntime(mod, "mission");
+      return `Missions-Mod „${mod.name}" installiert (${mod.payload.missions.length} Missionen).`;
+    case "collectible":
+      installRuntime(mod, "collectible");
+      return `Item-Mod „${mod.name}" installiert (${mod.payload.items.length} Items).`;
+    case "sound":
+      installRuntime(mod, "sound");
+      return `Sound-Mod „${mod.name}" aktiviert.`;
+    case "map": {
+      const list = getInstalledMapMods();
+      list.push({
+        id: mod.id,
+        name: mod.name,
+        author: mod.author,
+        enabled: true,
+        priority: mod.priority ?? 0,
+        objects: mod.payload.objects,
+      });
+      setInstalledMapMods(list);
+      return `Kartenerweiterung „${mod.name}" installiert (${mod.payload.objects.length} Objekte). Beim nächsten Sim-Start aktiv.`;
+    }
+
     case "map": {
       const list = getInstalledMapMods();
       list.push({

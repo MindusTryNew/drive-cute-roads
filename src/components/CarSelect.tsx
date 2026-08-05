@@ -19,12 +19,12 @@ import { DailyRewardDialog } from "@/components/DailyRewardDialog";
 import { PrestigePanel } from "@/components/PrestigePanel";
 import { PremiumPassPanel } from "@/components/PremiumPassPanel";
 import { NewsPanel } from "@/components/NewsPanel";
-import { FarewellGiftDialog } from "@/components/FarewellGiftDialog";
+import { AnniversaryGiftDialog } from "@/components/AnniversaryGiftDialog";
 import { readState as readDailyState } from "@/lib/daily-streak";
 import { getLevel, getPoints, subscribePrestige } from "@/lib/prestige";
 import { isPremiumActive, getPaidUntil, formatRemaining } from "@/lib/premium-pass";
 import { hasUnread, unreadCount } from "@/lib/news";
-import { hasClaimedFarewellGift } from "@/lib/farewell-gift";
+import { hasClaimedAnniversaryGift } from "@/lib/anniversary-gift";
 
 export type CarKey = "roadster" | "suv" | "racer";
 export type Mode = "solo" | "split" | "online";
@@ -99,7 +99,7 @@ export function CarSelect({
   const [showPrestige, setShowPrestige] = useState(false);
   const [showPremium, setShowPremium] = useState(false);
   const [showNews, setShowNews] = useState(false);
-  const [showFarewell, setShowFarewell] = useState(false);
+  const [showAnniversary, setShowAnniversary] = useState(false);
   const [prestigeLevel, setPrestigeLevel] = useState(getLevel());
   const [prestigePoints, setPrestigePoints] = useState(getPoints());
   const [premiumActive, setPremiumActive] = useState(false);
@@ -120,7 +120,7 @@ export function CarSelect({
       setPremiumUntil(getPaidUntil());
       setNewsUnread(hasUnread());
       setNewsCount(unreadCount());
-      setGiftClaimed(hasClaimedFarewellGift());
+      setGiftClaimed(hasClaimedAnniversaryGift());
     };
     updateMeta();
     const metaInterval = window.setInterval(updateMeta, 2000);
@@ -227,12 +227,10 @@ export function CarSelect({
                 </span>
               )}
             </button>
-            {!giftClaimed && (
-              <button onClick={() => setShowFarewell(true)}
-                className="rounded-lg border border-orange-500/60 bg-orange-500/10 px-3 py-1.5 text-sm hover:bg-orange-500/20">
-                🎁 Farewell
-              </button>
-            )}
+            <button onClick={() => setShowAnniversary(true)}
+              className={`rounded-lg border px-3 py-1.5 text-sm ${giftClaimed ? "hover:border-primary" : "border-orange-500/60 bg-orange-500/10 hover:bg-orange-500/20"}`}>
+              🎉 Jubiläum{giftClaimed ? "" : " · Geschenk!"}
+            </button>
             <button onClick={() => setShowRegions(true)}
               className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🗺️ Regionen</button>
             <button onClick={() => setShowRedeem(true)}
@@ -295,7 +293,12 @@ export function CarSelect({
         {showPrestige && <PrestigePanel onClose={() => setShowPrestige(false)} />}
         {showPremium && <PremiumPassPanel onClose={() => setShowPremium(false)} />}
         {showNews && <NewsPanel onClose={() => setShowNews(false)} />}
-        {showFarewell && <FarewellGiftDialog onClose={() => setShowFarewell(false)} />}
+        {showAnniversary && (
+          <AnniversaryGiftDialog
+            onClose={() => setShowAnniversary(false)}
+            onClaimed={() => { setGiftClaimed(true); setCustomCars(listCars()); }}
+          />
+        )}
 
         <section className="mt-12">
           <h2 className="text-4xl font-bold tracking-tight md:text-5xl">{headline ?? "Wähle dein Fahrzeug."}</h2>

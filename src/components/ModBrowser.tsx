@@ -13,6 +13,11 @@ import {
   getInstalledMapMods,
   toggleMapMod,
   removeMapMod,
+  getRuntimeMods,
+  toggleRuntimeMod,
+  removeRuntimeMod,
+  moveRuntimeMod,
+  findConflicts,
   type CloudMod,
   type Mod,
   type ModKind,
@@ -22,8 +27,15 @@ const TABS: { id: ModKind | "all" | "installed"; label: string }[] = [
   { id: "all", label: "Alle" },
   { id: "car", label: "Autos" },
   { id: "map", label: "Karten" },
+  { id: "skin", label: "Skins" },
+  { id: "physics", label: "Physik" },
+  { id: "weather", label: "Wetter" },
+  { id: "mission", label: "Missionen" },
+  { id: "collectible", label: "Items" },
+  { id: "sound", label: "Sounds" },
   { id: "part-pack", label: "Parts" },
   { id: "tuning-preset", label: "Presets" },
+  { id: "pack", label: "Packs" },
   { id: "installed", label: "Installiert" },
 ];
 
@@ -32,9 +44,16 @@ const KIND_LABEL: Record<ModKind, string> = {
   map: "Karte",
   "part-pack": "Parts",
   "tuning-preset": "Preset",
+  skin: "Skin",
+  physics: "Physik",
+  weather: "Wetter",
+  mission: "Mission",
+  collectible: "Items",
+  sound: "Sound",
+  pack: "Mod-Pack",
 };
 
-export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onOpenTutorial: () => void }) {
+export function ModBrowser({ onBack, onOpenTutorial, onOpenStudio }: { onBack: () => void; onOpenTutorial: () => void; onOpenStudio: () => void }) {
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("all");
   const [items, setItems] = useState<CloudMod[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,6 +101,16 @@ export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onO
     }
   };
 
+  const installLocal = async (file: File) => {
+    setErr(null); setInfo(null);
+    try {
+      const parsed = await parseModFile(file);
+      setInfo(await applyMod(parsed));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Datei ungültig");
+    }
+  };
+
   const handleFileUpload = async (file: File) => {
     setErr(null); setInfo(null);
     try {
@@ -109,7 +138,15 @@ export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onO
   };
 
   return (
-    <main className="relative h-screen w-screen overflow-y-auto">
+    <main
+      className="relative h-screen w-screen overflow-y-auto"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={async (e) => {
+        e.preventDefault();
+        const f = e.dataTransfer.files?.[0];
+        if (f) await installLocal(f);
+      }}
+    >
       <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b bg-background/80 px-6 py-4 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <Button variant="ghost" onClick={onBack}>← Garage</Button>
@@ -120,6 +157,18 @@ export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onO
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={onOpenTutorial}>📘 Modding-Tutorial</Button>
+          <Button variant="outline" onClick={onOpenStudio}>🧪 Mod-Studio</Button>
+          <label className="cursor-pointer">
+            <input type="file" accept=".json,application/json" className="hidden"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (f) await installLocal(f);
+                e.target.value = "";
+              }} />
+            <span className="inline-flex items-center rounded-lg border px-4 py-2 text-sm font-medium hover:border-primary">
+              📥 Datei installieren
+            </span>
+          </label>
           <label className="cursor-pointer">
             <input type="file" accept=".json,application/json" className="hidden"
               onChange={async (e) => {
@@ -207,47 +256,112 @@ export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onO
   );
 }
 
+const RUNTIME_ICON: Record<string, string> = {
+  skin: "🎨", physics: "🧪", weather: "🌦️", mission: "🎯", collectible: "🎁", sound: "🔊",
+};
+
 function InstalledSection() {
   const [maps, setMaps] = useState(getInstalledMapMods());
-  const refresh = () => setMaps(getInstalledMapMods());
+  const [runtime, setRuntime] = useState(getRuntimeMods());
+  const [conflicts, setConflicts] = useState<string[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const refresh = () => {
+    setMaps(getInstalledMapMods());
+    setRuntime(getRuntimeMods());
+    setConflicts(findConflicts());
+  };
+
+  useEffect(() => { refresh(); }, []);
 
   return (
-    <div className="px-6 py-6">
-      <h2 className="text-lg font-bold">Installierte Karten-Mods</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Werden beim nächsten Sim-Start in die Welt geladen. Toggle zum Ein-/Ausschalten.
-      </p>
-      {maps.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">Keine Karten-Mods installiert.</p>
-      ) : (
-        <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {maps.map((m) => (
-            <div key={m.id} className="rounded-xl border bg-card p-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-bold">{m.name}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground">
-                    von {m.author} · {m.objects.length} Objekte
-                  </p>
-                </div>
-                <span className={`rounded px-2 py-0.5 font-mono text-[10px] ${m.enabled ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
-                  {m.enabled ? "AN" : "AUS"}
-                </span>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1"
-                  onClick={() => { toggleMapMod(m.id); refresh(); }}>
-                  {m.enabled ? "Deaktivieren" : "Aktivieren"}
-                </Button>
-                <Button size="sm" variant="outline"
-                  onClick={() => { if (confirm(`„${m.name}" entfernen?`)) { removeMapMod(m.id); refresh(); } }}>
-                  ✕
-                </Button>
-              </div>
-            </div>
-          ))}
+    <div className="space-y-8 px-6 py-6">
+      {conflicts.length > 0 && (
+        <div className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-4 py-3 text-sm">
+          <p className="font-bold">⚠️ Konflikte erkannt</p>
+          {conflicts.map((c, i) => <p key={i} className="text-xs text-muted-foreground">{c}</p>)}
         </div>
       )}
+
+      <section>
+        <h2 className="text-lg font-bold">Aktive Runtime-Mods</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Ladereihenfolge von oben nach unten — spätere Mods überschreiben frühere.
+        </p>
+        {runtime.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">Keine Runtime-Mods installiert.</p>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {runtime.map((m, idx) => (
+              <div key={m.id} className="rounded-xl border bg-card p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs text-muted-foreground">#{idx + 1}</span>
+                  <span>{RUNTIME_ICON[m.kind] ?? "🧩"}</span>
+                  <button className="font-bold hover:underline" onClick={() => setOpenId(openId === m.id ? null : m.id)}>
+                    {m.name}
+                  </button>
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {KIND_LABEL[m.kind as ModKind]} · von {m.author}
+                  </span>
+                  <span className={`ml-auto rounded px-2 py-0.5 font-mono text-[10px] ${m.enabled ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    {m.enabled ? "AN" : "AUS"}
+                  </span>
+                  <Button size="sm" variant="outline" onClick={() => { moveRuntimeMod(m.id, -1); refresh(); }}>↑</Button>
+                  <Button size="sm" variant="outline" onClick={() => { moveRuntimeMod(m.id, 1); refresh(); }}>↓</Button>
+                  <Button size="sm" variant="outline" onClick={() => { toggleRuntimeMod(m.id); refresh(); }}>
+                    {m.enabled ? "Aus" : "An"}
+                  </Button>
+                  <Button size="sm" variant="outline"
+                    onClick={() => { if (confirm(`„${m.name}" entfernen?`)) { removeRuntimeMod(m.id); refresh(); } }}>✕</Button>
+                </div>
+                {openId === m.id && (
+                  <pre className="mt-3 max-h-52 overflow-auto rounded-lg border bg-background p-3 text-[11px]">
+                    {JSON.stringify(m.payload, null, 2)}
+                  </pre>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="text-lg font-bold">Installierte Karten-Mods</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Werden beim nächsten Sim-Start in die Welt geladen.
+        </p>
+        {maps.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">Keine Karten-Mods installiert.</p>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {maps.map((m) => (
+              <div key={m.id} className="rounded-xl border bg-card p-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-bold">{m.name}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground">
+                      von {m.author} · {m.objects.length} Objekte
+                    </p>
+                  </div>
+                  <span className={`rounded px-2 py-0.5 font-mono text-[10px] ${m.enabled ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    {m.enabled ? "AN" : "AUS"}
+                  </span>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button size="sm" variant="outline" className="flex-1"
+                    onClick={() => { toggleMapMod(m.id); refresh(); }}>
+                    {m.enabled ? "Deaktivieren" : "Aktivieren"}
+                  </Button>
+                  <Button size="sm" variant="outline"
+                    onClick={() => { if (confirm(`„${m.name}" entfernen?`)) { removeMapMod(m.id); refresh(); } }}>
+                    ✕
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
