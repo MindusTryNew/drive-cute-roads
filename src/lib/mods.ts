@@ -215,53 +215,73 @@ export type ModKind = Mod["kind"];
 /* --------------------------------------------------------------------- */
 
 /** Parst einen Mod aus einem beliebigen JSON-Wert.
- *  - Erkennt Format v2 direkt.
+ *  - Erkennt Format v2 und v3 direkt (v2 wird transparent migriert).
  *  - Konvertiert Legacy-Formate: `{ car: {...} }`, `{ version:1, type:"car", car:{...} }`
  *    und ein blankes CustomCar-Objekt werden automatisch als Car-Mod verpackt.
- *  - Wirft mit klarer Fehlermeldung falls unbekannt.
+ *  - Wirft mit lesbarer Fehlermeldung falls unbekannt.
  */
 export function parseMod(input: unknown): Mod {
-  // 1) direktes v2 Envelope?
-  const v2 = ModSchema.safeParse(input);
-  if (v2.success) return v2.data;
+  const direct = ModSchema.safeParse(input);
+  if (direct.success) return direct.data;
 
-  // 2) Legacy-Erkennung
+  // Legacy-Erkennung
   const obj = input as Record<string, unknown> | null;
   if (obj && typeof obj === "object") {
-    // { version:1, type:"car", car:{...} }
     const legacyCar =
       (obj.type === "car" && obj.car) ||
-      // { car: {...} }
       obj.car ||
-      // blankes CustomCar
       (typeof obj.tuning === "object" && obj.tuning ? obj : null);
     if (legacyCar) {
       const parsed = CustomCarSchema.safeParse(legacyCar);
-      if (parsed.success) {
-        return wrapCarMod(parsed.data);
-      }
-      throw new Error(`Ungültige Auto-Daten: ${parsed.error.issues[0]?.message ?? "Schema-Fehler"}`);
+      if (parsed.success) return wrapCarMod(parsed.data);
+      throw new Error(`Ungültige Auto-Daten: ${humanizeIssues(parsed.error.issues)}`);
     }
   }
 
-  const err = v2.error.issues[0];
   throw new Error(
-    `Kein gültiger Drift-Lab-Mod (Format v2). Fehler bei "${err?.path.join(".") || "root"}": ${err?.message}`,
+    `Kein gültiger Drift-Lab-Mod (Format v2/v3). ${humanizeIssues(direct.error.issues)}`,
   );
+}
+
+/** Übersetzt Zod-Fehler in verständliche deutsche Sätze. */
+export function humanizeIssues(issues: z.core.$ZodIssue[]): string {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const i of issues.slice(0, 40)) {
+    const path = i.path.filter((p) => typeof p !== "number").join(".") || "root";
+    const line = `Feld „${path}": ${i.message}`;
+    if (seen.has(line)) continue;
+    seen.add(line);
+    out.push(line);
+    if (out.length >= 4) break;
+  }
+  return out.join(" · ");
 }
 
 export function wrapCarMod(car: CustomCar, author = "anon"): Mod {
   return {
     format: "driftlab.mod",
-    version: 2,
+    version: 3,
     kind: "car",
-    id: crypto.randomUUID(),
+    id: makeId(),
     name: car.name,
     author,
     description: "",
+    priority: 0,
     payload: car,
   };
 }
+
+/** UUID mit Fallback für Browser ohne `crypto.randomUUID`. */
+export function makeId(): string {
+  try {
+    if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+  } catch { /* ignore */ }
+  return `id-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
 
 /* --------------------------------------------------------------------- */
 /* Anwendung                                                              */
