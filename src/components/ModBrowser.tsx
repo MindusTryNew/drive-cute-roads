@@ -226,47 +226,112 @@ export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onO
   );
 }
 
+const RUNTIME_ICON: Record<string, string> = {
+  skin: "🎨", physics: "🧪", weather: "🌦️", mission: "🎯", collectible: "🎁", sound: "🔊",
+};
+
 function InstalledSection() {
   const [maps, setMaps] = useState(getInstalledMapMods());
-  const refresh = () => setMaps(getInstalledMapMods());
+  const [runtime, setRuntime] = useState(getRuntimeMods());
+  const [conflicts, setConflicts] = useState<string[]>([]);
+  const [openId, setOpenId] = useState<string | null>(null);
+
+  const refresh = () => {
+    setMaps(getInstalledMapMods());
+    setRuntime(getRuntimeMods());
+    setConflicts(findConflicts());
+  };
+
+  useEffect(() => { refresh(); }, []);
 
   return (
-    <div className="px-6 py-6">
-      <h2 className="text-lg font-bold">Installierte Karten-Mods</h2>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Werden beim nächsten Sim-Start in die Welt geladen. Toggle zum Ein-/Ausschalten.
-      </p>
-      {maps.length === 0 ? (
-        <p className="mt-4 text-sm text-muted-foreground">Keine Karten-Mods installiert.</p>
-      ) : (
-        <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-          {maps.map((m) => (
-            <div key={m.id} className="rounded-xl border bg-card p-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-bold">{m.name}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground">
-                    von {m.author} · {m.objects.length} Objekte
-                  </p>
-                </div>
-                <span className={`rounded px-2 py-0.5 font-mono text-[10px] ${m.enabled ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
-                  {m.enabled ? "AN" : "AUS"}
-                </span>
-              </div>
-              <div className="mt-3 flex gap-2">
-                <Button size="sm" variant="outline" className="flex-1"
-                  onClick={() => { toggleMapMod(m.id); refresh(); }}>
-                  {m.enabled ? "Deaktivieren" : "Aktivieren"}
-                </Button>
-                <Button size="sm" variant="outline"
-                  onClick={() => { if (confirm(`„${m.name}" entfernen?`)) { removeMapMod(m.id); refresh(); } }}>
-                  ✕
-                </Button>
-              </div>
-            </div>
-          ))}
+    <div className="space-y-8 px-6 py-6">
+      {conflicts.length > 0 && (
+        <div className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-4 py-3 text-sm">
+          <p className="font-bold">⚠️ Konflikte erkannt</p>
+          {conflicts.map((c, i) => <p key={i} className="text-xs text-muted-foreground">{c}</p>)}
         </div>
       )}
+
+      <section>
+        <h2 className="text-lg font-bold">Aktive Runtime-Mods</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Ladereihenfolge von oben nach unten — spätere Mods überschreiben frühere.
+        </p>
+        {runtime.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">Keine Runtime-Mods installiert.</p>
+        ) : (
+          <div className="mt-4 space-y-2">
+            {runtime.map((m, idx) => (
+              <div key={m.id} className="rounded-xl border bg-card p-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-mono text-xs text-muted-foreground">#{idx + 1}</span>
+                  <span>{RUNTIME_ICON[m.kind] ?? "🧩"}</span>
+                  <button className="font-bold hover:underline" onClick={() => setOpenId(openId === m.id ? null : m.id)}>
+                    {m.name}
+                  </button>
+                  <span className="font-mono text-[10px] text-muted-foreground">
+                    {KIND_LABEL[m.kind as ModKind]} · von {m.author}
+                  </span>
+                  <span className={`ml-auto rounded px-2 py-0.5 font-mono text-[10px] ${m.enabled ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    {m.enabled ? "AN" : "AUS"}
+                  </span>
+                  <Button size="sm" variant="outline" onClick={() => { moveRuntimeMod(m.id, -1); refresh(); }}>↑</Button>
+                  <Button size="sm" variant="outline" onClick={() => { moveRuntimeMod(m.id, 1); refresh(); }}>↓</Button>
+                  <Button size="sm" variant="outline" onClick={() => { toggleRuntimeMod(m.id); refresh(); }}>
+                    {m.enabled ? "Aus" : "An"}
+                  </Button>
+                  <Button size="sm" variant="outline"
+                    onClick={() => { if (confirm(`„${m.name}" entfernen?`)) { removeRuntimeMod(m.id); refresh(); } }}>✕</Button>
+                </div>
+                {openId === m.id && (
+                  <pre className="mt-3 max-h-52 overflow-auto rounded-lg border bg-background p-3 text-[11px]">
+                    {JSON.stringify(m.payload, null, 2)}
+                  </pre>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="text-lg font-bold">Installierte Karten-Mods</h2>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Werden beim nächsten Sim-Start in die Welt geladen.
+        </p>
+        {maps.length === 0 ? (
+          <p className="mt-4 text-sm text-muted-foreground">Keine Karten-Mods installiert.</p>
+        ) : (
+          <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+            {maps.map((m) => (
+              <div key={m.id} className="rounded-xl border bg-card p-3">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-bold">{m.name}</p>
+                    <p className="font-mono text-[10px] text-muted-foreground">
+                      von {m.author} · {m.objects.length} Objekte
+                    </p>
+                  </div>
+                  <span className={`rounded px-2 py-0.5 font-mono text-[10px] ${m.enabled ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    {m.enabled ? "AN" : "AUS"}
+                  </span>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <Button size="sm" variant="outline" className="flex-1"
+                    onClick={() => { toggleMapMod(m.id); refresh(); }}>
+                    {m.enabled ? "Deaktivieren" : "Aktivieren"}
+                  </Button>
+                  <Button size="sm" variant="outline"
+                    onClick={() => { if (confirm(`„${m.name}" entfernen?`)) { removeMapMod(m.id); refresh(); } }}>
+                    ✕
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
