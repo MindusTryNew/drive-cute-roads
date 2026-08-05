@@ -445,10 +445,20 @@ export async function applyMod(mod: Mod): Promise<string> {
     case "sound":
       installRuntime(mod, "sound");
       return `Sound-Mod „${mod.name}" aktiviert.`;
-
-      saveCar(car, false);
-      return `Auto „${car.name}" in die Garage übernommen.`;
+    case "map": {
+      const list = getInstalledMapMods();
+      list.push({
+        id: mod.id,
+        name: mod.name,
+        author: mod.author,
+        enabled: true,
+        priority: mod.priority ?? 0,
+        objects: mod.payload.objects,
+      });
+      setInstalledMapMods(list);
+      return `Kartenerweiterung „${mod.name}" installiert (${mod.payload.objects.length} Objekte). Beim nächsten Sim-Start aktiv.`;
     }
+
     case "map": {
       const list = getInstalledMapMods();
       list.push({
