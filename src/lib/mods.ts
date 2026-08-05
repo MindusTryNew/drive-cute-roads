@@ -290,12 +290,15 @@ export function makeId(): string {
 
 const INSTALLED_MAP_KEY = "mods:installedMapMods";
 const INSTALLED_PRESET_KEY = "mods:installedPresets";
+/** Generische Registry für alle v3-Runtime-Mods. */
+const INSTALLED_V3_KEY = "mods:installedV3";
 
 export type InstalledMapMod = {
   id: string;
   name: string;
   author: string;
   enabled: boolean;
+  priority?: number;
   objects: MapObject[];
 };
 
@@ -303,6 +306,18 @@ export type InstalledPreset = {
   id: string;
   name: string;
   patch: Partial<Tuning>;
+};
+
+/** Ein installierter Runtime-Mod (Skin, Physik, Wetter, Mission, Item, Sound). */
+export type InstalledRuntimeMod = {
+  id: string;
+  kind: "skin" | "physics" | "weather" | "mission" | "collectible" | "sound";
+  name: string;
+  author: string;
+  enabled: boolean;
+  priority: number;
+  installedAt: number;
+  payload: unknown;
 };
 
 export function getInstalledMapMods(): InstalledMapMod[] {
@@ -325,12 +340,112 @@ export function getInstalledPresets(): InstalledPreset[] {
   }
 }
 
+export function setInstalledPresets(list: InstalledPreset[]) {
+  safeLS()?.setItem(INSTALLED_PRESET_KEY, JSON.stringify(list));
+}
+
+/** Alle v3-Runtime-Mods, sortiert nach Ladereihenfolge (priority, dann Zeit). */
+export function getRuntimeMods(): InstalledRuntimeMod[] {
+  try {
+    const list: InstalledRuntimeMod[] = JSON.parse(safeLS()?.getItem(INSTALLED_V3_KEY) ?? "[]");
+    return list.sort((a, b) => (a.priority - b.priority) || (a.installedAt - b.installedAt));
+  } catch {
+    return [];
+  }
+}
+
+export function setRuntimeMods(list: InstalledRuntimeMod[]) {
+  safeLS()?.setItem(INSTALLED_V3_KEY, JSON.stringify(list));
+  for (const l of runtimeListeners) l();
+}
+
+const runtimeListeners = new Set<() => void>();
+export function subscribeRuntimeMods(cb: () => void): () => void {
+  runtimeListeners.add(cb);
+  return () => { runtimeListeners.delete(cb); };
+}
+
+export function toggleRuntimeMod(id: string) {
+  setRuntimeMods(getRuntimeMods().map((m) => (m.id === id ? { ...m, enabled: !m.enabled } : m)));
+}
+
+export function removeRuntimeMod(id: string) {
+  setRuntimeMods(getRuntimeMods().filter((m) => m.id !== id));
+}
+
+export function moveRuntimeMod(id: string, dir: -1 | 1) {
+  const list = getRuntimeMods();
+  const i = list.findIndex((m) => m.id === id);
+  const j = i + dir;
+  if (i < 0 || j < 0 || j >= list.length) return;
+  [list[i], list[j]] = [list[j], list[i]];
+  setRuntimeMods(list.map((m, idx) => ({ ...m, priority: idx })));
+}
+
+/** Findet Konflikte: mehrere aktive Mods desselben exklusiven Typs. */
+export function findConflicts(): string[] {
+  const active = getRuntimeMods().filter((m) => m.enabled);
+  const out: string[] = [];
+  for (const kind of ["physics", "weather", "sound"] as const) {
+    const hits = active.filter((m) => m.kind === kind);
+    if (hits.length > 1) {
+      out.push(
+        `${hits.length} aktive ${kind}-Mods (${hits.map((h) => h.name).join(", ")}) — der letzte in der Liste gewinnt.`,
+      );
+    }
+  }
+  return out;
+}
+
+function installRuntime(mod: SingleMod, kind: InstalledRuntimeMod["kind"]) {
+  const list = getRuntimeMods();
+  const filtered = list.filter((m) => m.id !== mod.id);
+  filtered.push({
+    id: mod.id,
+    kind,
+    name: mod.name,
+    author: mod.author,
+    enabled: true,
+    priority: mod.priority ?? filtered.length,
+    installedAt: Date.now(),
+    payload: mod.payload,
+  });
+  setRuntimeMods(filtered);
+}
+
 /** Wendet einen validierten Mod an — Router pro `kind`. Gibt eine
  *  User-lesbare Meldung zurück. */
 export async function applyMod(mod: Mod): Promise<string> {
+  if (mod.kind === "pack") {
+    const msgs: string[] = [];
+    for (const sub of mod.payload.mods) msgs.push(await applyMod(sub));
+    return `Mod-Pack „${mod.name}" installiert (${msgs.length} Mods).`;
+  }
   switch (mod.kind) {
     case "car": {
-      const car: CustomCar = { ...mod.payload, id: crypto.randomUUID(), createdAt: Date.now() };
+      const car: CustomCar = { ...mod.payload, id: makeId(), createdAt: Date.now() };
+      saveCar(car, false);
+      return `Auto „${car.name}" in die Garage übernommen.`;
+    }
+    case "skin":
+      installRuntime(mod, "skin");
+      return `Skin „${mod.name}" installiert — im Auto-Editor auswählbar.`;
+    case "physics":
+      installRuntime(mod, "physics");
+      return `Physik-Mod „${mod.name}" aktiviert.`;
+    case "weather":
+      installRuntime(mod, "weather");
+      return `Wetter-Mod „${mod.name}" aktiviert.`;
+    case "mission":
+      installRuntime(mod, "mission");
+      return `Missions-Mod „${mod.name}" installiert (${mod.payload.missions.length} Missionen).`;
+    case "collectible":
+      installRuntime(mod, "collectible");
+      return `Item-Mod „${mod.name}" installiert (${mod.payload.items.length} Items).`;
+    case "sound":
+      installRuntime(mod, "sound");
+      return `Sound-Mod „${mod.name}" aktiviert.`;
+
       saveCar(car, false);
       return `Auto „${car.name}" in die Garage übernommen.`;
     }
