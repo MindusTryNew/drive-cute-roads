@@ -13,6 +13,11 @@ import {
   getInstalledMapMods,
   toggleMapMod,
   removeMapMod,
+  getRuntimeMods,
+  toggleRuntimeMod,
+  removeRuntimeMod,
+  moveRuntimeMod,
+  findConflicts,
   type CloudMod,
   type Mod,
   type ModKind,
@@ -22,8 +27,15 @@ const TABS: { id: ModKind | "all" | "installed"; label: string }[] = [
   { id: "all", label: "Alle" },
   { id: "car", label: "Autos" },
   { id: "map", label: "Karten" },
+  { id: "skin", label: "Skins" },
+  { id: "physics", label: "Physik" },
+  { id: "weather", label: "Wetter" },
+  { id: "mission", label: "Missionen" },
+  { id: "collectible", label: "Items" },
+  { id: "sound", label: "Sounds" },
   { id: "part-pack", label: "Parts" },
   { id: "tuning-preset", label: "Presets" },
+  { id: "pack", label: "Packs" },
   { id: "installed", label: "Installiert" },
 ];
 
@@ -32,6 +44,13 @@ const KIND_LABEL: Record<ModKind, string> = {
   map: "Karte",
   "part-pack": "Parts",
   "tuning-preset": "Preset",
+  skin: "Skin",
+  physics: "Physik",
+  weather: "Wetter",
+  mission: "Mission",
+  collectible: "Items",
+  sound: "Sound",
+  pack: "Mod-Pack",
 };
 
 export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onOpenTutorial: () => void }) {
