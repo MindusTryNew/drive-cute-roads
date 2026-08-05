@@ -240,14 +240,16 @@ export function MapEditor({ onBack, onTestDrive }: { onBack: () => void; onTestD
 
   const buildMod = (): Mod => ({
     format: "driftlab.mod",
-    version: 2,
+    version: 3,
     kind: "map",
     id: crypto.randomUUID(),
     name: mapName.trim() || "Meine Karte",
     author: author.trim() || "anon",
     description: `Erstellt im Map-Editor · ${objects.length} Objekte`,
+    priority: 0,
     payload: { objects },
   });
+
 
   const install = () => {
     if (!objects.length) return toast.error("Noch keine Objekte platziert.");
