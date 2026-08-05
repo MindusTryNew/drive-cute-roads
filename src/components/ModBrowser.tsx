@@ -53,7 +53,7 @@ const KIND_LABEL: Record<ModKind, string> = {
   pack: "Mod-Pack",
 };
 
-export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onOpenTutorial: () => void }) {
+export function ModBrowser({ onBack, onOpenTutorial, onOpenStudio }: { onBack: () => void; onOpenTutorial: () => void; onOpenStudio: () => void }) {
   const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("all");
   const [items, setItems] = useState<CloudMod[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,6 +101,16 @@ export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onO
     }
   };
 
+  const installLocal = async (file: File) => {
+    setErr(null); setInfo(null);
+    try {
+      const parsed = await parseModFile(file);
+      setInfo(await applyMod(parsed));
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Datei ungültig");
+    }
+  };
+
   const handleFileUpload = async (file: File) => {
     setErr(null); setInfo(null);
     try {
@@ -128,7 +138,15 @@ export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onO
   };
 
   return (
-    <main className="relative h-screen w-screen overflow-y-auto">
+    <main
+      className="relative h-screen w-screen overflow-y-auto"
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={async (e) => {
+        e.preventDefault();
+        const f = e.dataTransfer.files?.[0];
+        if (f) await installLocal(f);
+      }}
+    >
       <header className="sticky top-0 z-10 flex flex-wrap items-center justify-between gap-3 border-b bg-background/80 px-6 py-4 backdrop-blur-md">
         <div className="flex items-center gap-3">
           <Button variant="ghost" onClick={onBack}>← Garage</Button>
@@ -139,6 +157,18 @@ export function ModBrowser({ onBack, onOpenTutorial }: { onBack: () => void; onO
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" onClick={onOpenTutorial}>📘 Modding-Tutorial</Button>
+          <Button variant="outline" onClick={onOpenStudio}>🧪 Mod-Studio</Button>
+          <label className="cursor-pointer">
+            <input type="file" accept=".json,application/json" className="hidden"
+              onChange={async (e) => {
+                const f = e.target.files?.[0];
+                if (f) await installLocal(f);
+                e.target.value = "";
+              }} />
+            <span className="inline-flex items-center rounded-lg border px-4 py-2 text-sm font-medium hover:border-primary">
+              📥 Datei installieren
+            </span>
+          </label>
           <label className="cursor-pointer">
             <input type="file" accept=".json,application/json" className="hidden"
               onChange={async (e) => {

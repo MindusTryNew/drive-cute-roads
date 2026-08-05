@@ -7,6 +7,7 @@ import { Lobby } from "@/components/Lobby";
 import { Market } from "@/components/Market";
 import { MissionsScreen } from "@/components/MissionsScreen";
 import { ModBrowser } from "@/components/ModBrowser";
+import { ModStudio } from "@/components/ModStudio";
 import { TutorialScreen } from "@/components/TutorialScreen";
 import { MapEditor } from "@/components/MapEditor";
 import { Inventory } from "@/components/Inventory";
@@ -33,6 +34,7 @@ type View =
   | { kind: "missions" }
   | { kind: "mods" }
   | { kind: "tutorial" }
+  | { kind: "mod-studio" }
   | { kind: "map-editor" }
   | { kind: "inventory" }
   | { kind: "catalog" }
@@ -84,7 +86,16 @@ function Index() {
     return <MissionsScreen onBack={() => setView({ kind: "garage" })} />;
   }
   if (view.kind === "mods") {
-    return <ModBrowser onBack={() => setView({ kind: "garage" })} onOpenTutorial={() => setView({ kind: "tutorial" })} />;
+    return (
+      <ModBrowser
+        onBack={() => setView({ kind: "garage" })}
+        onOpenTutorial={() => setView({ kind: "tutorial" })}
+        onOpenStudio={() => setView({ kind: "mod-studio" })}
+      />
+    );
+  }
+  if (view.kind === "mod-studio") {
+    return <ModStudio onBack={() => setView({ kind: "mods" })} />;
   }
   if (view.kind === "tutorial") {
     return <TutorialScreen onBack={() => setView({ kind: "mods" })} />;
