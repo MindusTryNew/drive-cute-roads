@@ -244,11 +244,12 @@ export function parseMod(input: unknown): Mod {
 }
 
 /** Übersetzt Zod-Fehler in verständliche deutsche Sätze. */
-export function humanizeIssues(issues: z.core.$ZodIssue[]): string {
+export function humanizeIssues(issues: z.ZodIssue[]): string {
   const seen = new Set<string>();
   const out: string[] = [];
   for (const i of issues.slice(0, 40)) {
-    const path = i.path.filter((p) => typeof p !== "number").join(".") || "root";
+    const path = i.path.filter((p: string | number) => typeof p !== "number").join(".") || "root";
+
     const line = `Feld „${path}": ${i.message}`;
     if (seen.has(line)) continue;
     seen.add(line);
