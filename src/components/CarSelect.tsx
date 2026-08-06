@@ -91,7 +91,9 @@ export function CarSelect({
   const [error, setError] = useState<string | null>(null);
   const [coins, setCoins] = useState(getCoins());
   const [slots, setSlots] = useState(getSlots());
-  const [dev, setDev] = useState(isDevMode());
+  const [dev, setDev] = useState(false);
+  const [showAdmin, setShowAdmin] = useState(false);
+  const [adminCode, setAdminCode] = useState("");
   const [showRedeem, setShowRedeem] = useState(false);
   const [showAccount, setShowAccount] = useState(false);
   const [showRegions, setShowRegions] = useState(false);
@@ -113,7 +115,8 @@ export function CarSelect({
     setCustomCars(listCars());
     setRemaining(remainingToday());
     const un = subscribeCoins(setCoins);
-    const un2 = subscribeDevMode(setDev);
+    setDev(isAdmin());
+    const un2 = subscribeAdmin(setDev);
     const un3 = subscribePrestige(() => { setPrestigeLevel(getLevel()); setPrestigePoints(getPoints()); });
 
     const updateMeta = () => {
@@ -245,19 +248,23 @@ export function CarSelect({
               ✨ Lv {prestigeLevel}{prestigePoints > 0 ? ` · ${prestigePoints}P` : ""}
             </button>
             {dev ? (
-              <span className="rounded-lg border border-primary bg-primary/10 px-3 py-1.5 text-sm font-mono">⚡ DEV</span>
+              <button onClick={() => setShowAdmin(true)}
+                className="rounded-lg border border-primary bg-primary/10 px-3 py-1.5 font-mono text-sm">🛡️ ADMIN</button>
             ) : (
-              <button
-                onClick={() => {
-                  if (spendCoins(50000)) { setDevMode(true); toast.success("⚡ DevMode aktiviert!"); }
-                  else toast.error("Zu wenig Coins (50 000 nötig).");
-                }}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary disabled:opacity-40"
-                disabled={coins < 50000}
-                title="Entwicklermodus: unbegrenztes Experimentieren"
-              >
-                ⚡ DevMode (🪙 50 000)
-              </button>
+              <div className="flex items-center gap-1">
+                <input
+                  value={adminCode}
+                  onChange={(e) => setAdminCode(e.target.value.toUpperCase())}
+                  onKeyDown={async (e) => {
+                    if (e.key !== "Enter") return;
+                    const res = await unlockAdmin(adminCode);
+                    if (res.ok) { toast.success(res.message); setAdminCode(""); }
+                    else toast.error(res.message);
+                  }}
+                  placeholder="Admin-Code"
+                  className="w-28 rounded-lg border bg-background px-2 py-1.5 font-mono text-xs outline-none focus:border-primary"
+                />
+              </div>
             )}
             <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5">
               <span>🪙</span>
@@ -266,27 +273,7 @@ export function CarSelect({
           </div>
         </header>
 
-        {dev && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2">
-            <span className="font-mono text-[10px] uppercase tracking-widest text-primary">⚡ DevMode</span>
-            <span className="text-xs text-muted-foreground">Coins geben:</span>
-            {[1000, 10000, 100000, 1000000].map((n) => (
-              <button key={n} onClick={() => { addCoins(n); toast.success(`+${n.toLocaleString()} 🪙`); }}
-                className="rounded border border-primary/40 px-2 py-1 font-mono text-xs hover:bg-primary/10">
-                +{n.toLocaleString()}
-              </button>
-            ))}
-            <button onClick={() => { setCoinsAbsolute(500); toast.info("Coins auf 500 zurückgesetzt"); }}
-              className="rounded border border-destructive/40 px-2 py-1 font-mono text-xs text-destructive hover:bg-destructive/10">
-              Reset (500)
-            </button>
-            <button onClick={() => { setDevMode(false); toast.info("DevMode deaktiviert"); }}
-              className="ml-auto rounded border px-2 py-1 font-mono text-xs hover:border-primary">
-              DevMode aus
-            </button>
-          </div>
-        )}
-
+        {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
         {showRedeem && <RedeemCodeDialog onClose={() => setShowRedeem(false)} />}
         {showAccount && <AccountMenu onClose={() => setShowAccount(false)} />}
         {showRegions && <RegionPanel onClose={() => setShowRegions(false)} />}
