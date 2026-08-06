@@ -31,6 +31,9 @@ export function CollectionCatalog({ onBack }: { onBack: () => void }) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Collectible | null>(null);
   const [, tick] = useState(0);
+  const [showSeries, setShowSeries] = useState(false);
+  const [showCraft, setShowCraft] = useState(false);
+
 
   useEffect(() => subscribeCollection(setCounts), []);
   useEffect(() => subscribeActiveEffects(() => tick((n) => n + 1)), []);
