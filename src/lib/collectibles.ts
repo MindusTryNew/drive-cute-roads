@@ -1,4 +1,5 @@
-// Collectibles-Katalog: 450+ Items in 8 Rarity-Tiers + 6 Paket-Typen.
+// Collectibles-Katalog: 700+ Items in 8 Rarity-Tiers + 6 Paket-Typen.
+import { THEMED_ITEMS } from "./collectibles-themed";
 export type Rarity =
   | "common"
   | "uncommon"
