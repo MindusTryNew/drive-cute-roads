@@ -31,6 +31,17 @@ export function addToCollection(id: string, n = 1) {
     import("./prestige").then(({ awardXp }) => awardXp(wasNew ? 40 : 8 * n));
   }
 }
+/** Entfernt n Exemplare eines Items (für Crafting/Verwertung). */
+export function removeFromCollection(id: string, n = 1) {
+  const c = getCollection();
+  const have = c[id] ?? 0;
+  if (have <= 0) return;
+  const left = Math.max(0, have - n);
+  if (left === 0) delete c[id];
+  else c[id] = left;
+  save(c);
+}
+
 
 /** Ersetzt die komplette Collection (für Cloud-Sync). */
 export function replaceCollection(c: Counts) {
