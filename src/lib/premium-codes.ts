@@ -1,20 +1,20 @@
 // Einmal-einlösbare Premium-Codes (rein lokal — kein Anti-Cheat).
 import { addCoins, addSlot } from "./coins";
-import { setDevMode } from "./devmode";
 
 const REDEEMED_KEY = "garage:redeemed";
 const safeLS = () => (typeof localStorage !== "undefined" ? localStorage : null);
 
 export type CodeReward =
-  | { kind: "devmode" }
   | { kind: "coins"; amount: number }
   | { kind: "slot" };
 
 type CodeDef = { code: string; label: string; reward: CodeReward };
 
 const CATALOG: CodeDef[] = [
-  { code: "D3VM0DE999XXX", label: "DevMode freischalten", reward: { kind: "devmode" } },
+  { code: "DRIFT5000", label: "5 000 Coins", reward: { kind: "coins", amount: 5000 } },
+  { code: "GARAGEPLUS", label: "Extra Garagenplatz", reward: { kind: "slot" } },
 ];
+
 
 function getRedeemed(): string[] {
   try { return JSON.parse(safeLS()?.getItem(REDEEMED_KEY) ?? "[]"); }
