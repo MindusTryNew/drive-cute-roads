@@ -12,6 +12,8 @@ import {
 } from "@/lib/collectibles";
 import { getCollection, subscribeCollection } from "@/lib/collection";
 import { activateItem, cooldownRemaining, subscribeActiveEffects, getActiveEffects } from "@/lib/active-effects";
+import { SeriesPanel } from "@/components/SeriesPanel";
+import { CraftingPanel } from "@/components/CraftingPanel";
 
 type Filter = "all" | Rarity | "found" | "missing";
 type EffectFilter = "all" | "coins" | "perm" | "temp" | "cosmetic";
@@ -29,6 +31,9 @@ export function CollectionCatalog({ onBack }: { onBack: () => void }) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Collectible | null>(null);
   const [, tick] = useState(0);
+  const [showSeries, setShowSeries] = useState(false);
+  const [showCraft, setShowCraft] = useState(false);
+
 
   useEffect(() => subscribeCollection(setCounts), []);
   useEffect(() => subscribeActiveEffects(() => tick((n) => n + 1)), []);
@@ -76,7 +81,11 @@ export function CollectionCatalog({ onBack }: { onBack: () => void }) {
             <h1 className="text-xl font-bold md:text-2xl">📖 Sammel-Katalog</h1>
             <p className="text-xs text-muted-foreground md:text-sm">{foundCount} / {TOTAL_COUNT} entdeckt · {pct}%</p>
           </div>
-          <button onClick={onBack} className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">← Zurück</button>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setShowSeries(true)} className="rounded-lg border border-accent/50 bg-accent/10 px-3 py-1.5 text-sm hover:bg-accent/20">🗂️ Serien</button>
+            <button onClick={() => setShowCraft(true)} className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">⚗️ Werkbank</button>
+            <button onClick={onBack} className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">← Zurück</button>
+          </div>
         </header>
 
         <div className="mb-3 h-2 overflow-hidden rounded-full border bg-card/60">
@@ -190,6 +199,8 @@ export function CollectionCatalog({ onBack }: { onBack: () => void }) {
           }}
         />
       )}
+      {showSeries && <SeriesPanel onClose={() => setShowSeries(false)} />}
+      {showCraft && <CraftingPanel onClose={() => setShowCraft(false)} />}
     </main>
   );
 }
