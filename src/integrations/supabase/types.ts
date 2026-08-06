@@ -14,6 +14,96 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      collection_series: {
+        Row: {
+          active: boolean
+          author_id: string
+          created_at: string
+          description: string
+          id: string
+          item_ids: Json
+          name: string
+          tiers: Json
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          author_id: string
+          created_at?: string
+          description?: string
+          id?: string
+          item_ids?: Json
+          name: string
+          tiers?: Json
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          author_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          item_ids?: Json
+          name?: string
+          tiers?: Json
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      custom_missions: {
+        Row: {
+          active: boolean
+          author_id: string
+          created_at: string
+          description: string
+          expires_at: string | null
+          goal: Json
+          id: string
+          reward: Json
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          author_id: string
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          goal?: Json
+          id?: string
+          reward?: Json
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          author_id?: string
+          created_at?: string
+          description?: string
+          expires_at?: string | null
+          goal?: Json
+          id?: string
+          reward?: Json
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       market_cars: {
         Row: {
           body_type: string
@@ -107,6 +197,45 @@ export type Database = {
         }
         Relationships: []
       }
+      trade_offers: {
+        Row: {
+          created_at: string
+          give: Json
+          id: string
+          note: string
+          owner_id: string
+          owner_nick: string
+          status: string
+          taken_by: string | null
+          updated_at: string
+          want: Json
+        }
+        Insert: {
+          created_at?: string
+          give: Json
+          id?: string
+          note?: string
+          owner_id: string
+          owner_nick: string
+          status?: string
+          taken_by?: string | null
+          updated_at?: string
+          want: Json
+        }
+        Update: {
+          created_at?: string
+          give?: Json
+          id?: string
+          note?: string
+          owner_id?: string
+          owner_nick?: string
+          status?: string
+          taken_by?: string | null
+          updated_at?: string
+          want?: Json
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -114,6 +243,7 @@ export type Database = {
     Functions: {
       increment_market_purchase: { Args: { _id: string }; Returns: undefined }
       increment_mod_download: { Args: { _id: string }; Returns: undefined }
+      is_admin: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
       [_ in never]: never
