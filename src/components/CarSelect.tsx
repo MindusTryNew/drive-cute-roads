@@ -10,7 +10,7 @@ import {
   downloadCar,
   type CustomCar,
 } from "@/lib/garage";
-import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot, addCoins, setCoinsAbsolute } from "@/lib/coins";
+import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot } from "@/lib/coins";
 import { isAdmin, subscribeAdmin, unlockAdmin } from "@/lib/admin";
 import { AdminPanel } from "@/components/AdminPanel";
 import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
