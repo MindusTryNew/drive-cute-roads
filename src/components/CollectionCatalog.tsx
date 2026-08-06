@@ -81,7 +81,11 @@ export function CollectionCatalog({ onBack }: { onBack: () => void }) {
             <h1 className="text-xl font-bold md:text-2xl">📖 Sammel-Katalog</h1>
             <p className="text-xs text-muted-foreground md:text-sm">{foundCount} / {TOTAL_COUNT} entdeckt · {pct}%</p>
           </div>
-          <button onClick={onBack} className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">← Zurück</button>
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setShowSeries(true)} className="rounded-lg border border-accent/50 bg-accent/10 px-3 py-1.5 text-sm hover:bg-accent/20">🗂️ Serien</button>
+            <button onClick={() => setShowCraft(true)} className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">⚗️ Werkbank</button>
+            <button onClick={onBack} className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">← Zurück</button>
+          </div>
         </header>
 
         <div className="mb-3 h-2 overflow-hidden rounded-full border bg-card/60">
