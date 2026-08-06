@@ -11,7 +11,8 @@ import {
   type CustomCar,
 } from "@/lib/garage";
 import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot, addCoins, setCoinsAbsolute } from "@/lib/coins";
-import { isDevMode, setDevMode, subscribeDevMode } from "@/lib/devmode";
+import { isAdmin, subscribeAdmin, unlockAdmin } from "@/lib/admin";
+import { AdminPanel } from "@/components/AdminPanel";
 import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 import { AccountMenu } from "@/components/AccountMenu";
 import { RegionPanel } from "@/components/RegionPanel";
