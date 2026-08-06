@@ -36,7 +36,7 @@ export function redeemCode(input: string): { ok: true; label: string } | { ok: f
   if (getRedeemed().includes(def.code)) return { ok: false, reason: "Dieser Code wurde bereits eingelöst." };
 
   switch (def.reward.kind) {
-    case "devmode": setDevMode(true); break;
+    case "coins": addCoins(def.reward.amount); break;
     case "coins": addCoins(def.reward.amount); break;
     case "slot": addSlot(); break;
   }
