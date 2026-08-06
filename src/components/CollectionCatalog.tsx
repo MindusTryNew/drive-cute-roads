@@ -199,6 +199,8 @@ export function CollectionCatalog({ onBack }: { onBack: () => void }) {
           }}
         />
       )}
+      {showSeries && <SeriesPanel onClose={() => setShowSeries(false)} />}
+      {showCraft && <CraftingPanel onClose={() => setShowCraft(false)} />}
     </main>
   );
 }
