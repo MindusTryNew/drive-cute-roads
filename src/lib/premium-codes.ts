@@ -37,7 +37,6 @@ export function redeemCode(input: string): { ok: true; label: string } | { ok: f
 
   switch (def.reward.kind) {
     case "coins": addCoins(def.reward.amount); break;
-    case "coins": addCoins(def.reward.amount); break;
     case "slot": addSlot(); break;
   }
   markRedeemed(def.code);
