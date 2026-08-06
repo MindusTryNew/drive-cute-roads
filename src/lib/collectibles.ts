@@ -481,6 +481,7 @@ const FAREWELL: Collectible[] = [
 ];
 
 export const COLLECTIBLES: Collectible[] = [
+  ...THEMED_ITEMS,
   ...COMMON, ...COMMON_EXT,
   ...UNCOMMON, ...UNCOMMON_EXT,
   ...RARE, ...RARE_EXT,
