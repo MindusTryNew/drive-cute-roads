@@ -12,6 +12,8 @@ import {
 } from "@/lib/collectibles";
 import { getCollection, subscribeCollection } from "@/lib/collection";
 import { activateItem, cooldownRemaining, subscribeActiveEffects, getActiveEffects } from "@/lib/active-effects";
+import { SeriesPanel } from "@/components/SeriesPanel";
+import { CraftingPanel } from "@/components/CraftingPanel";
 
 type Filter = "all" | Rarity | "found" | "missing";
 type EffectFilter = "all" | "coins" | "perm" | "temp" | "cosmetic";
