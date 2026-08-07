@@ -1,12 +1,29 @@
-// Tägliches Bundle-Shop-System. Deterministisch pro Tag (Seed = YYYY-MM-DD).
+// Bundle-Shop: 4 rotierende Bundle-Größen (Klein, Mittel, Groß, Riesig).
+// Inhalte sind deterministisch pro Tag (Seed = YYYY-MM-DD + Slot).
 import { PRESETS } from "./preset-cars";
-import type { Rarity, Collectible } from "./collectibles";
+import type { Rarity, Collectible, PackType } from "./collectibles";
 import { COLLECTIBLES } from "./collectibles";
 
+export type BundleSize = "small" | "medium" | "large" | "huge";
+
+export const BUNDLE_SIZES: BundleSize[] = ["small", "medium", "large", "huge"];
+
+export const BUNDLE_META: Record<BundleSize, {
+  label: string; emoji: string; desc: string; discount: number;
+}> = {
+  small:  { label: "Klein",  emoji: "📦", desc: "Kleiner Einstieg — ein Auto und zwei Items.", discount: 0.8 },
+  medium: { label: "Mittel", emoji: "🎁", desc: "Solides Paket mit mehr Auswahl.",            discount: 0.75 },
+  large:  { label: "Groß",   emoji: "🏆", desc: "Dickes Paket inklusive Sammelpaket.",         discount: 0.68 },
+  huge:   { label: "Riesig", emoji: "💠", desc: "Endgame-Bundle mit maximalem Inhalt.",        discount: 0.6 },
+};
+
 export type BundleContent = {
-  presetKeys: string[];   // 1-3
-  collectibleIds: string[]; // 2-5
+  size: BundleSize;
+  presetKeys: string[];
+  collectibleIds: string[];
+  packs: PackType[];
   price: number;
+  rawValue: number;
 };
 
 const BY_RARITY: Record<Rarity, Collectible[]> = {
@@ -37,127 +54,113 @@ const RARITY_PRICE: Record<Rarity, number> = {
   legendary: 8000, mythical: 20000, cosmic: 50000, celestial: 120000,
 };
 
+type PresetDef = (typeof PRESETS)[number];
+
 const PRESET_PRICE: Record<PresetDef["rarity"], number> = {
   common: 1200, uncommon: 3500, rare: 9000, epic: 22000, legendary: 60000,
 };
 
-type PresetDef = (typeof PRESETS)[number];
+const PACK_PRICE: Record<PackType, number> = {
+  starter: 800, standard: 2000, deluxe: 6000,
+  mythic: 18000, ultra: 45000, celestial: 100000,
+};
 
-function pickRarity(r: () => number, tier: "low" | "mid" | "high"): Rarity {
-  const roll = r();
-  if (tier === "low") {
-    if (roll < 0.70) return "common";
-    if (roll < 0.92) return "uncommon";
-    if (roll < 0.99) return "rare";
-    return "epic";
-  }
-  if (tier === "mid") {
-    if (roll < 0.30) return "uncommon";
-    if (roll < 0.70) return "rare";
-    if (roll < 0.92) return "epic";
-    if (roll < 0.99) return "legendary";
-    return "mythical";
-  }
-  // high
-  if (roll < 0.25) return "rare";
-  if (roll < 0.55) return "epic";
-  if (roll < 0.82) return "legendary";
-  if (roll < 0.95) return "mythical";
-  if (roll < 0.995) return "cosmic";
-  return "celestial";
-}
+type Tier = "low" | "mid" | "high" | "top";
 
-function pickPresetTier(r: () => number, tier: "low" | "high"): PresetDef["rarity"] {
-  const roll = r();
-  if (tier === "low") {
-    if (roll < 0.55) return "common";
-    if (roll < 0.85) return "uncommon";
-    if (roll < 0.98) return "rare";
-    return "epic";
-  }
-  if (roll < 0.20) return "uncommon";
-  if (roll < 0.55) return "rare";
-  if (roll < 0.88) return "epic";
-  return "legendary";
-}
+const RARITY_TABLE: Record<Tier, Rarity[]> = {
+  low:  ["common", "common", "common", "uncommon", "uncommon", "rare"],
+  mid:  ["common", "uncommon", "uncommon", "rare", "rare", "epic"],
+  high: ["uncommon", "rare", "rare", "epic", "epic", "legendary"],
+  top:  ["rare", "epic", "epic", "legendary", "legendary", "mythical", "cosmic"],
+};
 
-function buildBundle(date: string, slot: 0 | 1): BundleContent {
+const PRESET_TABLE: Record<Tier, PresetDef["rarity"][]> = {
+  low:  ["common", "common", "uncommon"],
+  mid:  ["common", "uncommon", "uncommon", "rare"],
+  high: ["uncommon", "rare", "rare", "epic"],
+  top:  ["rare", "epic", "epic", "legendary"],
+};
+
+const RECIPE: Record<BundleSize, { presets: number; items: number; packs: PackType[]; tier: Tier }> = {
+  small:  { presets: 1, items: 2, packs: [],                      tier: "low" },
+  medium: { presets: 2, items: 3, packs: ["starter"],             tier: "mid" },
+  large:  { presets: 2, items: 4, packs: ["deluxe"],              tier: "high" },
+  huge:   { presets: 3, items: 6, packs: ["ultra", "mythic"],     tier: "top" },
+};
+
+function buildBundle(date: string, size: BundleSize): BundleContent {
+  const slot = BUNDLE_SIZES.indexOf(size);
   const r = mulberry(seedFromDate(date, slot));
-  const isPremium = slot === 1;
-  const presetCount = isPremium ? 3 : (r() < 0.5 ? 1 : 2);
-  const collCount = isPremium ? 5 : (2 + Math.floor(r() * 3));
+  const recipe = RECIPE[size];
 
   const presetKeys: string[] = [];
-  const presetRarity = isPremium ? "high" : "low";
   const pool = [...PRESETS];
-  for (let i = 0; i < presetCount && pool.length > 0; i++) {
-    const targetTier = pickPresetTier(r, presetRarity);
-    // Sortiere Kandidaten nach Nähe zur Ziel-Rarität; wenn nichts passt, nimm alles.
-    const filtered = pool.filter((p) => p.rarity === targetTier);
+  for (let i = 0; i < recipe.presets && pool.length > 0; i++) {
+    const table = PRESET_TABLE[recipe.tier];
+    const target = table[Math.floor(r() * table.length)];
+    const filtered = pool.filter((p) => p.rarity === target);
     const cand = filtered.length ? filtered : pool;
     const p = cand[Math.floor(r() * cand.length)];
     presetKeys.push(p.key);
     pool.splice(pool.indexOf(p), 1);
   }
 
-  const collIds: string[] = [];
-  const tier = isPremium ? "high" : (r() < 0.5 ? "low" : "mid");
-  for (let i = 0; i < collCount; i++) {
-    const rar = pickRarity(r, tier);
-    const list = BY_RARITY[rar];
-    const pick = list.length ? list[Math.floor(r() * list.length)] : BY_RARITY.common[0];
-    collIds.push(pick.id);
+  const collectibleIds: string[] = [];
+  for (let i = 0; i < recipe.items; i++) {
+    const table = RARITY_TABLE[recipe.tier];
+    const rar = table[Math.floor(r() * table.length)];
+    const list = BY_RARITY[rar].length ? BY_RARITY[rar] : BY_RARITY.common;
+    collectibleIds.push(list[Math.floor(r() * list.length)].id);
   }
 
-  // Preis-Kalkulation + 20-40% Rabatt gegenüber Einzelwert.
   const cars = presetKeys.reduce((s, k) => {
-    const p = PRESETS.find((x) => x.key === k)!;
-    return s + PRESET_PRICE[p.rarity];
+    const p = PRESETS.find((x) => x.key === k);
+    return s + (p ? PRESET_PRICE[p.rarity] : 0);
   }, 0);
-  const items = collIds.reduce((s, id) => {
-    const c = COLLECTIBLES.find((x) => x.id === id)!;
-    return s + RARITY_PRICE[c.rarity];
+  const items = collectibleIds.reduce((s, id) => {
+    const c = COLLECTIBLES.find((x) => x.id === id);
+    return s + (c ? RARITY_PRICE[c.rarity] : 0);
   }, 0);
-  const raw = cars + items;
-  const discount = isPremium ? 0.65 : 0.75; // 25% / 35% Ersparnis
-  const price = Math.max(500, Math.round((raw * discount) / 100) * 100);
+  const packs = recipe.packs.reduce((s, p) => s + PACK_PRICE[p], 0);
 
-  return { presetKeys, collectibleIds: collIds, price };
+  const rawValue = cars + items + packs;
+  const price = Math.max(400, Math.round((rawValue * BUNDLE_META[size].discount) / 100) * 100);
+
+  return { size, presetKeys, collectibleIds, packs: recipe.packs, price, rawValue };
 }
 
 export function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
-export function getTodayBundles(): [BundleContent, BundleContent] {
+export function getTodayBundles(): BundleContent[] {
   const d = todayKey();
-  return [buildBundle(d, 0), buildBundle(d, 1)];
+  return BUNDLE_SIZES.map((s) => buildBundle(d, s));
 }
 
 const BOUGHT_KEY = "garage:bundlesBought";
 const safeLS = () => (typeof localStorage !== "undefined" ? localStorage : null);
 
-type BoughtState = { date: string; slots: number[] };
+type BoughtState = { date: string; sizes: string[] };
 
 function readBought(): BoughtState {
-  const ls = safeLS();
-  const raw = ls?.getItem(BOUGHT_KEY);
   const today = todayKey();
-  if (!raw) return { date: today, slots: [] };
   try {
-    const p = JSON.parse(raw) as BoughtState;
-    if (p.date !== today) return { date: today, slots: [] };
-    return p;
-  } catch { return { date: today, slots: [] }; }
+    const raw = safeLS()?.getItem(BOUGHT_KEY);
+    if (!raw) return { date: today, sizes: [] };
+    const p = JSON.parse(raw) as Partial<BoughtState>;
+    if (p.date !== today || !Array.isArray(p.sizes)) return { date: today, sizes: [] };
+    return { date: today, sizes: p.sizes };
+  } catch { return { date: today, sizes: [] }; }
 }
 
-export function isBought(slot: 0 | 1): boolean {
-  return readBought().slots.includes(slot);
+export function isBought(size: BundleSize): boolean {
+  return readBought().sizes.includes(size);
 }
 
-export function markBought(slot: 0 | 1) {
+export function markBought(size: BundleSize) {
   const b = readBought();
-  if (!b.slots.includes(slot)) b.slots.push(slot);
+  if (!b.sizes.includes(size)) b.sizes.push(size);
   safeLS()?.setItem(BOUGHT_KEY, JSON.stringify(b));
 }
 

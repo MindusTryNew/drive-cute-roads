@@ -205,6 +205,8 @@ export type Database = {
           note: string
           owner_id: string
           owner_nick: string
+          payout: Json
+          payout_claimed: boolean
           status: string
           taken_by: string | null
           updated_at: string
@@ -217,6 +219,8 @@ export type Database = {
           note?: string
           owner_id: string
           owner_nick: string
+          payout?: Json
+          payout_claimed?: boolean
           status?: string
           taken_by?: string | null
           updated_at?: string
@@ -229,10 +233,36 @@ export type Database = {
           note?: string
           owner_id?: string
           owner_nick?: string
+          payout?: Json
+          payout_claimed?: boolean
           status?: string
           taken_by?: string | null
           updated_at?: string
           want?: Json
+        }
+        Relationships: []
+      }
+      wishlists: {
+        Row: {
+          created_at: string
+          item_ids: Json
+          nick: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          item_ids?: Json
+          nick?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          item_ids?: Json
+          nick?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
