@@ -51,7 +51,7 @@ export const CHAPTERS: Chapter[] = [
     title: "1 · Grundlagen",
     goal: "Den Aufbau einer Mod-Datei verstehen und einen gültigen Mod schreiben.",
     lesson: [
-      "Ein Mod ist eine JSON-Datei. Jede Datei hat immer denselben Rahmen (den „Envelope") und einen Inhalt (`payload`), der von der Art des Mods abhängt.",
+      "Ein Mod ist eine JSON-Datei. Jede Datei hat immer denselben Rahmen (den „Envelope“) und einen Inhalt (`payload`), der von der Art des Mods abhängt.",
       "Pflichtfelder im Envelope: `format` (immer \"driftlab.mod\"), `version` (3), `kind` (die Art), `id`, `name` (2–60 Zeichen), `author` (1–24 Zeichen), `payload`.",
       "Optional: `description` (max. 500 Zeichen) und `priority` (−100 bis 100 — kleinere Werte werden zuerst geladen).",
       "Es gibt diese Arten: car, map, part-pack, tuning-preset, skin, physics, weather, mission, collectible, sound und pack (mehrere Inhalte in einer Datei).",
@@ -59,12 +59,12 @@ export const CHAPTERS: Chapter[] = [
     ],
     code: base("tuning-preset", "Mein erstes Preset", `{ "patch": { "topSpeed": 260 } }`),
     task: {
-      prompt: "Schreibe einen gültigen Tuning-Preset-Mod mit dem Namen „Stadtflitzer" und einer Top-Speed von 180.",
+      prompt: "Schreibe einen gültigen Tuning-Preset-Mod mit dem Namen „Stadtflitzer“ und einer Top-Speed von 180.",
       hint: "kind muss \"tuning-preset\" sein, payload.patch.topSpeed = 180.",
       starter: base("tuning-preset", "Stadtflitzer", `{ "patch": { "topSpeed": 0 } }`),
       check: (m) => {
         if (m.kind !== "tuning-preset") return no("kind muss \"tuning-preset\" sein.");
-        if (m.name !== "Stadtflitzer") return no("Der Name muss genau „Stadtflitzer" sein.");
+        if (m.name !== "Stadtflitzer") return no("Der Name muss genau „Stadtflitzer“ sein.");
         if (m.payload.patch.topSpeed !== 180) return no("payload.patch.topSpeed muss 180 sein.");
         return ok("Perfekt — dein erster gültiger Mod!");
       },
@@ -263,7 +263,7 @@ export const CHAPTERS: Chapter[] = [
       "Ein Pack hat `kind: \"pack\"` und enthält unter `payload.mods` eine Liste vollständiger Einzel-Mods (1 bis 40 Stück).",
       "Jeder Eintrag in der Liste ist selbst ein kompletter Mod inklusive Envelope — nicht nur der payload.",
       "Beim Installieren wendet das Spiel alle enthaltenen Mods nacheinander an.",
-      "Im Mod-Studio kannst du das im Reiter „📦 Pack" komplett ohne JSON zusammenklicken.",
+      "Im Mod-Studio kannst du das im Reiter „📦 Pack“ komplett ohne JSON zusammenklicken.",
     ],
     code: `{
   "format": "driftlab.mod",
