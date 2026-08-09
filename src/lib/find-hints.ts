@@ -37,6 +37,8 @@ const RARITY_SOURCE: Record<Rarity, string[]> = {
   mythical: ["Mythic-Paket", "Ultra-Paket", "Serien-Belohnung"],
   cosmic: ["Ultra-Paket", "Himmlisches Paket", "Werkbank-Aufwertung"],
   celestial: ["Himmlisches Paket", "Serien-Belohnung"],
+  interplanetary: ["Himmlisches Paket (sehr selten)", "Werkbank-Aufwertung", "Serien-Meister-Belohnung"],
+  ultimate: ["Himmlisches Paket (extrem selten)", "Werkbank-Aufwertung aus Interplanetar"],
 };
 
 export type FindHint = {

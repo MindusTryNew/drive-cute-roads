@@ -25,12 +25,16 @@ function effectFor(rarity: Rarity, i: number): Effect {
       return { kind: "temp", stat, pct: 30, seconds: 240 };
     case "celestial":
       return { kind: "perm", stat, pct: 3 };
+    case "interplanetary":
+      return { kind: "temp", stat, pct: 45, seconds: 320 };
+    case "ultimate":
+      return { kind: "perm", stat, pct: 5 };
   }
 }
 
 /** Rarity-Verlauf innerhalb einer Serie: hinten wird es seltener. */
 function rarityAt(i: number, len: number, top: Rarity): Rarity {
-  const ladder: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary", "mythical", "cosmic", "celestial"];
+  const ladder: Rarity[] = ["common", "uncommon", "rare", "epic", "legendary", "mythical", "cosmic", "celestial", "interplanetary", "ultimate"];
   const maxIdx = ladder.indexOf(top);
   const p = len <= 1 ? 1 : i / (len - 1);
   // Kurve: die meisten Items sind niedrig, die letzten wenigen hoch.
@@ -138,6 +142,7 @@ function buildSeries(def: SeriesDef): Collectible[] {
       rarity,
       emoji,
       effect: effectFor(rarity, i),
+      series: def.name,
     };
   });
 }

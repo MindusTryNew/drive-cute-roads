@@ -496,6 +496,7 @@ const FAREWELL: Collectible[] = [
 
 export const COLLECTIBLES: Collectible[] = [
   ...THEMED_ITEMS,
+  ...EXTRA_ITEMS,
   ...COMMON, ...COMMON_EXT,
   ...UNCOMMON, ...UNCOMMON_EXT,
   ...RARE, ...RARE_EXT,
@@ -525,12 +526,12 @@ export const PACK_META: Record<PackType, { label: string; emoji: string; color: 
 };
 
 const WEIGHTS: Record<PackType, Record<Rarity, number>> = {
-  starter:   { common: 75, uncommon: 22, rare: 3,  epic: 0,  legendary: 0, mythical: 0, cosmic: 0, celestial: 0 },
-  standard:  { common: 45, uncommon: 40, rare: 13, epic: 2,  legendary: 0, mythical: 0, cosmic: 0, celestial: 0 },
-  deluxe:    { common: 20, uncommon: 40, rare: 30, epic: 9,  legendary: 1, mythical: 0, cosmic: 0, celestial: 0 },
-  mythic:    { common: 5,  uncommon: 20, rare: 40, epic: 27, legendary: 6, mythical: 2, cosmic: 0, celestial: 0 },
-  ultra:     { common: 0,  uncommon: 8,  rare: 25, epic: 35, legendary: 20,mythical: 10,cosmic: 2, celestial: 0 },
-  celestial: { common: 0,  uncommon: 0,  rare: 10, epic: 25, legendary: 25,mythical: 22,cosmic: 15,celestial: 3 },
+  starter:   { common: 75, uncommon: 22, rare: 3,  epic: 0,  legendary: 0, mythical: 0, cosmic: 0, celestial: 0, interplanetary: 0, ultimate: 0 },
+  standard:  { common: 45, uncommon: 40, rare: 13, epic: 2,  legendary: 0, mythical: 0, cosmic: 0, celestial: 0, interplanetary: 0, ultimate: 0 },
+  deluxe:    { common: 20, uncommon: 40, rare: 30, epic: 9,  legendary: 1, mythical: 0, cosmic: 0, celestial: 0, interplanetary: 0, ultimate: 0 },
+  mythic:    { common: 5,  uncommon: 20, rare: 40, epic: 27, legendary: 6, mythical: 2, cosmic: 0, celestial: 0, interplanetary: 0, ultimate: 0 },
+  ultra:     { common: 0,  uncommon: 8,  rare: 25, epic: 35, legendary: 20,mythical: 10,cosmic: 2, celestial: 0, interplanetary: 0, ultimate: 0 },
+  celestial: { common: 0,  uncommon: 0,  rare: 10, epic: 24, legendary: 24,mythical: 21,cosmic: 14,celestial: 5, interplanetary: 1.7, ultimate: 0.3 },
 };
 
 const GUARANTEES: Record<PackType, Rarity | null> = {
@@ -551,6 +552,8 @@ const BY_RARITY: Record<Rarity, Collectible[]> = {
   mythical:  COLLECTIBLES.filter((c) => c.rarity === "mythical"),
   cosmic:    COLLECTIBLES.filter((c) => c.rarity === "cosmic"),
   celestial: COLLECTIBLES.filter((c) => c.rarity === "celestial"),
+  interplanetary: COLLECTIBLES.filter((c) => c.rarity === "interplanetary"),
+  ultimate:  COLLECTIBLES.filter((c) => c.rarity === "ultimate"),
 };
 
 function pickRarity(pack: PackType): Rarity {
