@@ -18,6 +18,8 @@ export const SCRAP_VALUE: Record<Rarity, number> = {
   mythical: 3000,
   cosmic: 8000,
   celestial: 20000,
+  interplanetary: 55000,
+  ultimate: 150000,
 };
 
 /** Anzahl Duplikate (alles über 1 Stück) pro Seltenheit. */
@@ -55,7 +57,7 @@ export const UPGRADE_COST = 5;
 export function upgradeDuplicates(rarity: Rarity): { ok: boolean; message: string; item?: Collectible } {
   const idx = RARITY_ORDER.indexOf(rarity);
   if (idx < 0 || idx >= RARITY_ORDER.length - 1) {
-    return { ok: false, message: "Himmlisch lässt sich nicht weiter aufwerten." };
+    return { ok: false, message: "Ultimativ lässt sich nicht weiter aufwerten." };
   }
   if (duplicatesByRarity()[rarity] < UPGRADE_COST) {
     return { ok: false, message: `${UPGRADE_COST} Duplikate nötig.` };

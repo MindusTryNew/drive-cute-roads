@@ -28,7 +28,7 @@ export type BundleContent = {
 
 const BY_RARITY: Record<Rarity, Collectible[]> = {
   common: [], uncommon: [], rare: [], epic: [], legendary: [],
-  mythical: [], cosmic: [], celestial: [],
+  mythical: [], cosmic: [], celestial: [], interplanetary: [], ultimate: [],
 };
 for (const c of COLLECTIBLES) BY_RARITY[c.rarity].push(c);
 
@@ -52,6 +52,7 @@ function seedFromDate(date: string, slot: number): number {
 const RARITY_PRICE: Record<Rarity, number> = {
   common: 150, uncommon: 350, rare: 900, epic: 2500,
   legendary: 8000, mythical: 20000, cosmic: 50000, celestial: 120000,
+  interplanetary: 300000, ultimate: 750000,
 };
 
 type PresetDef = (typeof PRESETS)[number];

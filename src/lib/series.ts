@@ -1,5 +1,6 @@
 // Sammelserien: eingebaute Serien + vom Admin erstellte Cloud-Serien.
 import { BUILTIN_SERIES, type SeriesTier } from "./collectibles-themed";
+import { EXTRA_SERIES } from "./collectibles-extra";
 import { getCollection } from "./collection";
 import { addCoins } from "./coins";
 import { addPack } from "./inventory";
@@ -28,7 +29,7 @@ const emit = () => { for (const l of listeners) l(); };
 let cloudCache: Series[] = [];
 
 export function getSeries(): Series[] {
-  const builtin: Series[] = BUILTIN_SERIES.map((s) => ({ ...s, source: "builtin" as const }));
+  const builtin: Series[] = [...BUILTIN_SERIES, ...EXTRA_SERIES].map((s) => ({ ...s, source: "builtin" as const }));
   return [...builtin, ...cloudCache];
 }
 
