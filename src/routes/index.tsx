@@ -8,7 +8,7 @@ import { Market } from "@/components/Market";
 import { MissionsScreen } from "@/components/MissionsScreen";
 import { ModBrowser } from "@/components/ModBrowser";
 import { ModStudio } from "@/components/ModStudio";
-import { TutorialScreen } from "@/components/TutorialScreen";
+import { ModCampaign } from "@/components/ModCampaign";
 import { MapEditor } from "@/components/MapEditor";
 import { Inventory } from "@/components/Inventory";
 import { CollectionCatalog } from "@/components/CollectionCatalog";
@@ -98,7 +98,7 @@ function Index() {
     return <ModStudio onBack={() => setView({ kind: "mods" })} />;
   }
   if (view.kind === "tutorial") {
-    return <TutorialScreen onBack={() => setView({ kind: "mods" })} />;
+    return <ModCampaign onBack={() => setView({ kind: "mods" })} />;
   }
   if (view.kind === "map-editor") {
     return (
