@@ -1,5 +1,6 @@
-// Collectibles-Katalog: 700+ Items in 8 Rarity-Tiers + 6 Paket-Typen.
+// Collectibles-Katalog: 1000+ Items in 10 Rarity-Tiers + 6 Paket-Typen.
 import { THEMED_ITEMS } from "./collectibles-themed";
+import { EXTRA_ITEMS } from "./collectibles-extra";
 export type Rarity =
   | "common"
   | "uncommon"
@@ -8,7 +9,9 @@ export type Rarity =
   | "legendary"
   | "mythical"
   | "cosmic"
-  | "celestial";
+  | "celestial"
+  | "interplanetary"
+  | "ultimate";
 
 export type Effect =
   | { kind: "coins"; amount: number }
@@ -23,6 +26,8 @@ export type Collectible = {
   rarity: Rarity;
   emoji: string;
   effect?: Effect;
+  /** Themenserie (nur bei Serien-Items gesetzt). */
+  series?: string;
 };
 
 export const RARITY_COLORS: Record<Rarity, string> = {
@@ -34,6 +39,8 @@ export const RARITY_COLORS: Record<Rarity, string> = {
   mythical: "#ff6ec7",
   cosmic: "#00f0ff",
   celestial: "#ffffff",
+  interplanetary: "#7c5cff",
+  ultimate: "#ff8a3d",
 };
 
 export const RARITY_LABEL: Record<Rarity, string> = {
@@ -45,10 +52,13 @@ export const RARITY_LABEL: Record<Rarity, string> = {
   mythical: "Mythisch",
   cosmic: "Kosmisch",
   celestial: "Himmlisch",
+  interplanetary: "Interplanetar",
+  ultimate: "Ultimativ",
 };
 
 export const RARITY_ORDER: Rarity[] = [
-  "common", "uncommon", "rare", "epic", "legendary", "mythical", "cosmic", "celestial",
+  "common", "uncommon", "rare", "epic", "legendary",
+  "mythical", "cosmic", "celestial", "interplanetary", "ultimate",
 ];
 
 // Cooldowns für aktivierbare Temp-Effekte (Sekunden).
@@ -61,7 +71,10 @@ export const RARITY_COOLDOWN_SEC: Record<Rarity, number> = {
   mythical: 900,
   cosmic: 1800,
   celestial: 3600,
+  interplanetary: 7200,
+  ultimate: 14400,
 };
+
 
 function mk(id: string, name: string, desc: string, rarity: Rarity, emoji: string, effect?: Effect): Collectible {
   return { id, name, desc, rarity, emoji, effect };
