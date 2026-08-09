@@ -31,6 +31,10 @@ const num = (v: string, def: number) => {
 
 export function ModStudio({ onBack }: { onBack: () => void }) {
   const [kind, setKind] = useState<StudioKind>("skin");
+  const [tab, setTab] = useState<"single" | "pack">("single");
+  const [pack, setPack] = useState<Mod[]>([]);
+  const [packName, setPackName] = useState("Mein Pack");
+  const [editIndex, setEditIndex] = useState<number | null>(null);
   const [name, setName] = useState("Mein Mod");
   const [author, setAuthor] = useState("anon");
   const [desc, setDesc] = useState("");
@@ -127,6 +131,70 @@ export function ModStudio({ onBack }: { onBack: () => void }) {
     payload: buildPayload(),
   });
 
+  const addToPack = () => {
+    try {
+      const m = build();
+      setPack((prev) => {
+        if (editIndex !== null) {
+          const next = [...prev];
+          next[editIndex] = m;
+          return next;
+        }
+        if (prev.length >= 40) { toast.error("Maximal 40 Inhalte pro Pack."); return prev; }
+        return [...prev, m];
+      });
+      toast.success(editIndex !== null ? "Inhalt aktualisiert." : `„${m.name}" zum Pack hinzugefügt.`);
+      setEditIndex(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Mod ungültig");
+    }
+  };
+
+  const buildPack = (): Mod => parseMod({
+    format: "driftlab.mod",
+    version: 3,
+    kind: "pack",
+    id: makeId(),
+    name: packName.trim() || "Mein Pack",
+    author: author.trim() || "anon",
+    description: `Pack mit ${pack.length} Inhalten.`.slice(0, 500),
+    priority: 0,
+    payload: { mods: pack },
+  });
+
+  const movePack = (i: number, dir: -1 | 1) => {
+    setPack((prev) => {
+      const j = i + dir;
+      if (j < 0 || j >= prev.length) return prev;
+      const next = [...prev];
+      [next[i], next[j]] = [next[j], next[i]];
+      return next;
+    });
+  };
+
+  const loadPackFile = async (file: File) => {
+    try {
+      const mod = parseMod(JSON.parse(await file.text()));
+      if (mod.kind !== "pack") { toast.error("Das ist kein Pack-Mod."); return; }
+      setPack(mod.payload.mods as Mod[]);
+      setPackName(mod.name);
+      setTab("pack");
+      toast.success(`Pack „${mod.name}" geladen.`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Datei ungültig");
+    }
+  };
+
+  const installPack = async () => {
+    try { toast.success(await applyMod(buildPack())); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Pack ungültig"); }
+  };
+
+  const exportPack = () => {
+    try { downloadMod(buildPack()); toast.success("Pack exportiert."); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Pack ungültig"); }
+  };
+
   const install = async () => {
     try {
       toast.success(await applyMod(build()));
@@ -172,15 +240,37 @@ export function ModStudio({ onBack }: { onBack: () => void }) {
             <h1 className="text-xl font-bold">Mods bauen ohne JSON zu schreiben</h1>
           </div>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" onClick={exportFile}>⬇️ Exportieren</Button>
-          <Button onClick={install}>✅ Installieren</Button>
+        <div className="flex flex-wrap gap-2">
+          {tab === "single" ? (
+            <>
+              <Button variant="secondary" onClick={addToPack}>
+                {editIndex !== null ? "💾 Im Pack speichern" : "➕ Zum Pack"}
+              </Button>
+              <Button variant="outline" onClick={exportFile}>⬇️ Exportieren</Button>
+              <Button onClick={install}>✅ Installieren</Button>
+            </>
+          ) : (
+            <>
+              <Button variant="outline" onClick={exportPack} disabled={pack.length === 0}>⬇️ Pack exportieren</Button>
+              <Button onClick={installPack} disabled={pack.length === 0}>✅ Pack installieren</Button>
+            </>
+          )}
         </div>
       </header>
 
       <div className="grid gap-6 px-6 py-6 lg:grid-cols-[260px_1fr]">
         <aside className="space-y-2">
-          {KINDS.map((k) => (
+          <div className="mb-2 grid grid-cols-2 gap-2">
+            <button onClick={() => setTab("single")}
+              className={`rounded-lg border px-3 py-2 text-sm ${tab === "single" ? "border-primary bg-primary/10" : ""}`}>
+              Einzel-Mod
+            </button>
+            <button onClick={() => setTab("pack")}
+              className={`rounded-lg border px-3 py-2 text-sm ${tab === "pack" ? "border-primary bg-primary/10" : ""}`}>
+              📦 Pack ({pack.length})
+            </button>
+          </div>
+          {tab === "single" && KINDS.map((k) => (
             <button key={k.id} onClick={() => setKind(k.id)}
               className={`w-full rounded-xl border p-3 text-left ${kind === k.id ? "border-primary bg-primary/10" : ""}`}>
               <p className="font-bold">{k.icon} {k.label}</p>
@@ -189,6 +279,49 @@ export function ModStudio({ onBack }: { onBack: () => void }) {
           ))}
         </aside>
 
+        {tab === "pack" ? (
+          <section className="space-y-4 rounded-2xl border bg-card p-5">
+            <div className="grid gap-3 md:grid-cols-2">
+              {field("Pack-Name", <Input value={packName} onChange={(e) => setPackName(e.target.value)} maxLength={60} />)}
+              {field("Pack-Datei laden", (
+                <label className="flex h-9 cursor-pointer items-center rounded-md border px-3 text-sm hover:border-primary">
+                  📂 .mod.json auswählen
+                  <input type="file" accept=".json,application/json" className="hidden"
+                    onChange={async (e) => { const f = e.target.files?.[0]; if (f) await loadPackFile(f); e.target.value = ""; }} />
+                </label>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Baue Inhalte im Reiter „Einzel-Mod" und klicke oben auf „➕ Zum Pack". Reihenfolge = Ladereihenfolge.
+            </p>
+            {pack.length === 0 ? (
+              <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+                Noch keine Inhalte im Pack.
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {pack.map((m, i) => (
+                  <li key={`${m.id}-${i}`} className="flex flex-wrap items-center gap-2 rounded-xl border bg-background p-3">
+                    <span className="font-mono text-xs text-muted-foreground">#{i + 1}</span>
+                    <span className="flex-1 min-w-0 truncate">
+                      <b>{m.name}</b> <span className="font-mono text-[11px] text-muted-foreground">{m.kind}</span>
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => movePack(i, -1)} disabled={i === 0}>↑</Button>
+                    <Button size="sm" variant="ghost" onClick={() => movePack(i, 1)} disabled={i === pack.length - 1}>↓</Button>
+                    <Button size="sm" variant="outline" onClick={() => { setEditIndex(i); setName(m.name); setKind((KINDS.find((k) => k.id === m.kind)?.id ?? "skin")); setTab("single"); toast.info("Baue den Inhalt neu und speichere ihn im Pack."); }}>
+                      Bearbeiten
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setPack((p) => p.filter((_, j) => j !== i))}>✕</Button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="rounded-xl border bg-background p-3">
+              <p className="mb-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Vorschau (JSON)</p>
+              <pre className="max-h-52 overflow-auto text-[11px]">{JSON.stringify({ kind: "pack", mods: pack.map((m) => ({ kind: m.kind, name: m.name })) }, null, 2)}</pre>
+            </div>
+          </section>
+        ) : (
         <section className="space-y-4 rounded-2xl border bg-card p-5">
           <div className="grid gap-3 md:grid-cols-2">
             {field("Name", <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={60} />)}
@@ -298,6 +431,7 @@ export function ModStudio({ onBack }: { onBack: () => void }) {
             <pre className="max-h-52 overflow-auto text-[11px]">{JSON.stringify(buildPayload(), null, 2)}</pre>
           </div>
         </section>
+        )}
       </div>
     </main>
   );
