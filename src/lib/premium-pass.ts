@@ -22,6 +22,26 @@ function now() { return Date.now(); }
 
 function msInWeeks(weeks: number) { return weeks * 7 * 24 * 60 * 60 * 1000; }
 
+/** Pass-Laufzeit um Tage verlängern (z. B. aus einem Admin-Bundle). */
+export function grantPremiumDays(days: number) {
+  const ls = safeLS();
+  const n = now();
+  let paidUntil = n;
+  try {
+    const raw = ls?.getItem(PASS_KEY);
+    if (raw) {
+      const p = JSON.parse(raw) as PassState;
+      if (p.paidUntil > n) paidUntil = p.paidUntil;
+    }
+  } catch { /* ignore */ }
+  ls?.setItem(PASS_KEY, JSON.stringify({
+    active: true,
+    startedAt: n,
+    paidUntil: paidUntil + days * 24 * 60 * 60 * 1000,
+    weeklyCost: WEEKLY_COST,
+  }));
+}
+
 export function getPassState(): PassState | null {
   try {
     const raw = safeLS()?.getItem(PASS_KEY);

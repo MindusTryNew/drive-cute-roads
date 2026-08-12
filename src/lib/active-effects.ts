@@ -87,6 +87,15 @@ export function activateItem(itemId: string): { ok: boolean; message: string } {
   return { ok: true, message: `${item.name} aktiviert!` };
 }
 
+/** Booster ohne Item gewähren (z. B. aus einem Admin-Bundle). */
+export function grantTempBoost(stat: Stat, pct: number, seconds: number, label = "booster"): void {
+  const list = getActiveEffects();
+  list.push({ itemId: `boost:${label}:${Date.now()}`, stat, pct, endsAt: Date.now() + seconds * 1000 });
+  saveActive(list);
+  emit();
+}
+
+
 /** Aggregierte Temp-Bonus-Stats (%). */
 export function getTempBonuses(): { accel: number; topSpeed: number; grip: number; brake: number } {
   const b = { accel: 0, topSpeed: 0, grip: 0, brake: 0 };

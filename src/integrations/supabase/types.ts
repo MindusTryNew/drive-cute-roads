@@ -65,6 +65,99 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_bundles: {
+        Row: {
+          active: boolean
+          author_id: string
+          contents: Json
+          created_at: string
+          description: string
+          emoji: string
+          ends_at: string | null
+          id: string
+          once_per_player: boolean
+          price: number
+          starts_at: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          author_id: string
+          contents?: Json
+          created_at?: string
+          description?: string
+          emoji?: string
+          ends_at?: string | null
+          id?: string
+          once_per_player?: boolean
+          price?: number
+          starts_at?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          author_id?: string
+          contents?: Json
+          created_at?: string
+          description?: string
+          emoji?: string
+          ends_at?: string | null
+          id?: string
+          once_per_player?: boolean
+          price?: number
+          starts_at?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      custom_collectibles: {
+        Row: {
+          active: boolean
+          author_id: string
+          created_at: string
+          description: string
+          effect: Json
+          emoji: string
+          id: string
+          item_key: string
+          name: string
+          rarity_key: string
+          series_key: string | null
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          author_id: string
+          created_at?: string
+          description?: string
+          effect?: Json
+          emoji?: string
+          id?: string
+          item_key: string
+          name: string
+          rarity_key?: string
+          series_key?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          author_id?: string
+          created_at?: string
+          description?: string
+          effect?: Json
+          emoji?: string
+          id?: string
+          item_key?: string
+          name?: string
+          rarity_key?: string
+          series_key?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       custom_missions: {
         Row: {
           active: boolean
@@ -100,6 +193,54 @@ export type Database = {
           id?: string
           reward?: Json
           title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      custom_rarities: {
+        Row: {
+          active: boolean
+          author_id: string
+          color: string
+          cooldown_sec: number
+          created_at: string
+          emoji: string
+          id: string
+          key: string
+          label: string
+          ladder_rank: number
+          pack_weights: Json
+          price: number
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          author_id: string
+          color?: string
+          cooldown_sec?: number
+          created_at?: string
+          emoji?: string
+          id?: string
+          key: string
+          label: string
+          ladder_rank?: number
+          pack_weights?: Json
+          price?: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          author_id?: string
+          color?: string
+          cooldown_sec?: number
+          created_at?: string
+          emoji?: string
+          id?: string
+          key?: string
+          label?: string
+          ladder_rank?: number
+          pack_weights?: Json
+          price?: number
           updated_at?: string
         }
         Relationships: []

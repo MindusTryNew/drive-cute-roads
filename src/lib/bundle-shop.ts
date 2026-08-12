@@ -171,3 +171,22 @@ export function msUntilReset(): number {
   next.setHours(24, 0, 0, 0);
   return next.getTime() - now.getTime();
 }
+
+/** Preis einer Admin-Seltenheit registrieren (für Bundle-Wertberechnung). */
+export function registerRuntimeRarityPrice(key: string, price: number): void {
+  RARITY_PRICE[key as Rarity] = price;
+  if (!BY_RARITY[key as Rarity]) BY_RARITY[key as Rarity] = [];
+}
+
+/** Item-Pools neu aufbauen, nachdem Admin-Items geladen wurden. */
+export function refreshBundlePools(): void {
+  for (const k of Object.keys(BY_RARITY)) BY_RARITY[k as Rarity].length = 0;
+  for (const c of COLLECTIBLES) {
+    if (!BY_RARITY[c.rarity]) BY_RARITY[c.rarity] = [];
+    BY_RARITY[c.rarity].push(c);
+  }
+}
+
+export function rarityPrice(key: string): number {
+  return RARITY_PRICE[key as Rarity] ?? 500;
+}
