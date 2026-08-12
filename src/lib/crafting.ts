@@ -22,6 +22,15 @@ export const SCRAP_VALUE: Record<Rarity, number> = {
   ultimate: 150000,
 };
 
+/** Verwertungswert für eine vom Admin erstellte Seltenheit registrieren. */
+export function registerRuntimeScrapValue(key: string, value: number): void {
+  SCRAP_VALUE[key as Rarity] = value;
+}
+
+export function scrapValue(key: string): number {
+  return SCRAP_VALUE[key as Rarity] ?? 25;
+}
+
 /** Anzahl Duplikate (alles über 1 Stück) pro Seltenheit. */
 export function duplicatesByRarity(): Record<Rarity, number> {
   const counts = getCollection();

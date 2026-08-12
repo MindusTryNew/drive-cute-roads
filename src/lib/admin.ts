@@ -142,3 +142,130 @@ export async function deleteCloudSeries(id: string): Promise<void> {
   const { error } = await supabase.from("collection_series").delete().eq("id", id);
   if (error) throw error;
 }
+
+/* -------------------- Seltenheiten (Admin) --------------------- */
+
+async function requireUid(): Promise<string> {
+  const { data } = await supabase.auth.getUser();
+  const uid = data.user?.id;
+  if (!uid) throw new Error("Bitte zuerst mit dem Konto anmelden.");
+  return uid;
+}
+
+export type RarityRow = {
+  id: string;
+  key: string;
+  label: string;
+  color: string;
+  emoji: string;
+  cooldown_sec: number;
+  ladder_rank: number;
+  price: number;
+  pack_weights: Record<string, number>;
+  active: boolean;
+};
+
+export async function listRarities(): Promise<RarityRow[]> {
+  const { data, error } = await supabase
+    .from("custom_rarities")
+    .select("id, key, label, color, emoji, cooldown_sec, ladder_rank, price, pack_weights, active")
+    .order("ladder_rank", { ascending: true })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []) as unknown as RarityRow[];
+}
+
+export async function createRarity(r: Omit<RarityRow, "id" | "active">): Promise<void> {
+  const uid = await requireUid();
+  const { error } = await supabase.from("custom_rarities").insert({ ...r, pack_weights: r.pack_weights as never, author_id: uid, active: true });
+  if (error) throw error;
+}
+
+export async function setRarityActive(id: string, active: boolean): Promise<void> {
+  const { error } = await supabase.from("custom_rarities").update({ active }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteRarity(id: string): Promise<void> {
+  const { error } = await supabase.from("custom_rarities").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/* --------------------- Sammelitems (Admin) --------------------- */
+
+export type ItemRow = {
+  id: string;
+  item_key: string;
+  name: string;
+  emoji: string;
+  description: string;
+  rarity_key: string;
+  effect: Record<string, unknown>;
+  series_key: string | null;
+  active: boolean;
+};
+
+export type NewItem = Omit<ItemRow, "id" | "active">;
+
+export async function listCustomItems(): Promise<ItemRow[]> {
+  const { data, error } = await supabase
+    .from("custom_collectibles")
+    .select("id, item_key, name, emoji, description, rarity_key, effect, series_key, active")
+    .order("created_at", { ascending: false })
+    .limit(500);
+  if (error) throw error;
+  return (data ?? []) as unknown as ItemRow[];
+}
+
+export async function createCustomItems(items: NewItem[]): Promise<void> {
+  const uid = await requireUid();
+  const rows = items.map((i) => ({ ...i, effect: i.effect as never, author_id: uid, active: true }));
+  const { error } = await supabase.from("custom_collectibles").insert(rows);
+  if (error) throw error;
+}
+
+export async function deleteCustomItem(id: string): Promise<void> {
+  const { error } = await supabase.from("custom_collectibles").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/* ----------------------- Bundles (Admin) ----------------------- */
+
+export type BundleRow = {
+  id: string;
+  title: string;
+  description: string;
+  emoji: string;
+  contents: Record<string, unknown>;
+  price: number;
+  starts_at: string | null;
+  ends_at: string | null;
+  once_per_player: boolean;
+  active: boolean;
+};
+
+export async function listAdminBundles(): Promise<BundleRow[]> {
+  const { data, error } = await supabase
+    .from("custom_bundles")
+    .select("id, title, description, emoji, contents, price, starts_at, ends_at, once_per_player, active")
+    .order("created_at", { ascending: false })
+    .limit(100);
+  if (error) throw error;
+  return (data ?? []) as unknown as BundleRow[];
+}
+
+export async function createAdminBundle(b: Omit<BundleRow, "id" | "active">): Promise<void> {
+  const uid = await requireUid();
+  const { error } = await supabase.from("custom_bundles").insert({ ...b, contents: b.contents as never, author_id: uid, active: true });
+  if (error) throw error;
+}
+
+export async function setBundleActive(id: string, active: boolean): Promise<void> {
+  const { error } = await supabase.from("custom_bundles").update({ active }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteAdminBundle(id: string): Promise<void> {
+  const { error } = await supabase.from("custom_bundles").delete().eq("id", id);
+  if (error) throw error;
+}

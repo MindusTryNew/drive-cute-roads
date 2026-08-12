@@ -593,3 +593,60 @@ export function rollWorldPackType(): PackType {
 }
 
 export const PACK_TYPES: PackType[] = ["starter", "standard", "deluxe", "mythic", "ultra", "celestial"];
+
+// ============================================================
+//  Laufzeit-Registry: Admin-Seltenheiten & Admin-Items
+// ============================================================
+
+/** Rangfolge in der Seltenheits-Leiter (für Crafting/Upgrades). */
+export const RARITY_RANK: Record<string, number> = Object.fromEntries(
+  RARITY_ORDER.map((r, i) => [r, (i + 1) * 100]),
+);
+
+export type RuntimeRarityDef = {
+  key: string;
+  label: string;
+  color: string;
+  cooldownSec: number;
+  ladderRank: number;
+  packWeights?: Partial<Record<PackType, number>>;
+};
+
+const runtimeRarities: RuntimeRarityDef[] = [];
+export function getRuntimeRarities(): RuntimeRarityDef[] {
+  return [...runtimeRarities];
+}
+export function isRuntimeRarity(key: string): boolean {
+  return runtimeRarities.some((r) => r.key === key);
+}
+
+/** Registriert eine vom Admin erstellte Seltenheit im gesamten Spiel. */
+export function registerRuntimeRarity(def: RuntimeRarityDef): void {
+  const k = def.key as Rarity;
+  RARITY_COLORS[k] = def.color;
+  RARITY_LABEL[k] = def.label;
+  RARITY_COOLDOWN_SEC[k] = def.cooldownSec;
+  RARITY_RANK[k] = def.ladderRank;
+  if (!RARITY_ORDER.includes(k)) RARITY_ORDER.push(k);
+  RARITY_ORDER.sort((a, b) => (RARITY_RANK[a] ?? 0) - (RARITY_RANK[b] ?? 0));
+  for (const p of PACK_TYPES) WEIGHTS[p][k] = def.packWeights?.[p] ?? 0;
+  if (!BY_RARITY[k]) BY_RARITY[k] = [];
+  const i = runtimeRarities.findIndex((r) => r.key === def.key);
+  if (i >= 0) runtimeRarities[i] = def;
+  else runtimeRarities.push(def);
+}
+
+/** Fügt vom Admin erstellte Items zum globalen Katalog hinzu. */
+export function registerRuntimeItems(items: Collectible[]): void {
+  for (const it of items) {
+    if (COLLECTIBLES_BY_ID[it.id]) continue;
+    COLLECTIBLES.push(it);
+    COLLECTIBLES_BY_ID[it.id] = it;
+    if (!BY_RARITY[it.rarity]) BY_RARITY[it.rarity] = [];
+    BY_RARITY[it.rarity].push(it);
+  }
+}
+
+export function totalCount(): number {
+  return COLLECTIBLES.length;
+}
