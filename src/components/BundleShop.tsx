@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { listLiveBundles, buyAdminBundle, boughtIds, bundleValue, type AdminBundle } from "@/lib/admin-bundles";
 import { toast } from "sonner";
 import {
   getTodayBundles, isBought, markBought, msUntilReset,
@@ -168,5 +169,66 @@ function BundleCard({
         </button>
       </div>
     </div>
+  );
+}
+
+function AdminBundleSection({ coins }: { coins: number }) {
+  const [rows, setRows] = useState<AdminBundle[]>([]);
+  const [owned, setOwned] = useState<string[]>([]);
+
+  useEffect(() => {
+    listLiveBundles().then(setRows).catch(() => setRows([]));
+    setOwned(boughtIds());
+  }, []);
+
+  if (rows.length === 0) return null;
+
+  return (
+    <section className="mt-12">
+      <h2 className="text-lg font-bold">🎁 Spezial-Bundles</h2>
+      <p className="text-xs text-muted-foreground">Von den Entwicklern zusammengestellt — zeitlich begrenzt.</p>
+      <div className="mt-4 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {rows.map((b) => {
+          const c = b.contents;
+          const isOwned = b.once_per_player && owned.includes(b.id);
+          return (
+            <div key={b.id} className="flex flex-col rounded-2xl border-2 border-border bg-card p-5">
+              <div className="flex items-start gap-2">
+                <span className="text-2xl">{b.emoji}</span>
+                <div className="min-w-0">
+                  <h3 className="truncate text-base font-bold">{b.title}</h3>
+                  <p className="text-[11px] text-muted-foreground">{b.description}</p>
+                </div>
+              </div>
+              <ul className="mt-3 space-y-1 text-xs text-muted-foreground">
+                {c.presets.length > 0 && <li>🚗 {c.presets.length} Fahrzeuge</li>}
+                {c.items.length > 0 && <li>💎 {c.items.length} Sammelitems</li>}
+                {c.packs.length > 0 && <li>📦 {c.packs.length} Sammelpakete</li>}
+                {c.coins > 0 && <li>🪙 {c.coins.toLocaleString()} Coins</li>}
+                {c.slots > 0 && <li>🏠 {c.slots} Garagen-Slots</li>}
+                {c.passDays > 0 && <li>⭐ {c.passDays} Tage Premium-Pass</li>}
+                {c.boosters.length > 0 && <li>⚡ {c.boosters.length} Booster</li>}
+              </ul>
+              <div className="mt-auto pt-4">
+                <p className="mb-2 text-[11px] text-muted-foreground">
+                  Einzelwert 🪙 {bundleValue(c).toLocaleString()}
+                </p>
+                <button
+                  disabled={isOwned || coins < b.price}
+                  onClick={() => {
+                    const r = buyAdminBundle(b);
+                    if (r.ok) { toast.success(r.message); setOwned(boughtIds()); }
+                    else toast.error(r.message);
+                  }}
+                  className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
+                >
+                  {isOwned ? "Bereits gekauft" : `Kaufen — 🪙 ${b.price.toLocaleString()}`}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }
