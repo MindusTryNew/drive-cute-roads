@@ -74,6 +74,10 @@ export function BundleShop({ onBack }: { onBack: () => void }) {
             />
           ))}
         </div>
+
+        <AdminBundleSection coins={coins} />
+      </div>
+
       </div>
     </main>
   );
