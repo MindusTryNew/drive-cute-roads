@@ -269,3 +269,87 @@ export async function deleteAdminBundle(id: string): Promise<void> {
   const { error } = await supabase.from("custom_bundles").delete().eq("id", id);
   if (error) throw error;
 }
+
+/* ------------------------ Kisten (Admin) ----------------------- */
+
+export type PackRow = {
+  id: string;
+  key: string;
+  label: string;
+  emoji: string;
+  color: string;
+  description: string;
+  price: number;
+  min_items: number;
+  max_items: number;
+  rarity_weights: Record<string, number>;
+  guarantee: Record<string, unknown>;
+  world_chance: number;
+  active: boolean;
+};
+
+export async function listCustomPacks(): Promise<PackRow[]> {
+  const { data, error } = await supabase
+    .from("custom_packs")
+    .select("id, key, label, emoji, color, description, price, min_items, max_items, rarity_weights, guarantee, world_chance, active")
+    .order("created_at", { ascending: false })
+    .limit(200);
+  if (error) throw error;
+  return (data ?? []) as unknown as PackRow[];
+}
+
+export async function createCustomPack(p: Omit<PackRow, "id" | "active">): Promise<void> {
+  const uid = await requireUid();
+  const { error } = await supabase.from("custom_packs").insert({
+    ...p,
+    rarity_weights: p.rarity_weights as never,
+    guarantee: p.guarantee as never,
+    author_id: uid,
+    active: true,
+  });
+  if (error) throw error;
+}
+
+export async function updateCustomPack(id: string, p: Partial<Omit<PackRow, "id">>): Promise<void> {
+  const { error } = await supabase.from("custom_packs").update({
+    ...p,
+    rarity_weights: p.rarity_weights as never,
+    guarantee: p.guarantee as never,
+  }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function setPackActive(id: string, active: boolean): Promise<void> {
+  const { error } = await supabase.from("custom_packs").update({ active }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteCustomPack(id: string): Promise<void> {
+  const { error } = await supabase.from("custom_packs").delete().eq("id", id);
+  if (error) throw error;
+}
+
+/* ------------------- Bearbeiten bestehender Inhalte ------------- */
+
+export async function updateRarity(id: string, r: Partial<Omit<RarityRow, "id">>): Promise<void> {
+  const { error } = await supabase.from("custom_rarities")
+    .update({ ...r, pack_weights: r.pack_weights as never }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateCustomItem(id: string, i: Partial<Omit<ItemRow, "id">>): Promise<void> {
+  const { error } = await supabase.from("custom_collectibles")
+    .update({ ...i, effect: i.effect as never }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateAdminBundle(id: string, b: Partial<Omit<BundleRow, "id">>): Promise<void> {
+  const { error } = await supabase.from("custom_bundles")
+    .update({ ...b, contents: b.contents as never }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function setItemActive(id: string, active: boolean): Promise<void> {
+  const { error } = await supabase.from("custom_collectibles").update({ active }).eq("id", id);
+  if (error) throw error;
+}

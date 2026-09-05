@@ -61,7 +61,7 @@ const PRESET_PRICE: Record<PresetDef["rarity"], number> = {
   common: 1200, uncommon: 3500, rare: 9000, epic: 22000, legendary: 60000,
 };
 
-const PACK_PRICE: Record<PackType, number> = {
+const PACK_PRICE: Record<string, number> = {
   starter: 800, standard: 2000, deluxe: 6000,
   mythic: 18000, ultra: 45000, celestial: 100000,
 };
@@ -189,4 +189,13 @@ export function refreshBundlePools(): void {
 
 export function rarityPrice(key: string): number {
   return RARITY_PRICE[key as Rarity] ?? 500;
+}
+
+/** Preis einer Admin-Kiste registrieren. */
+export function registerRuntimePackPrice(key: string, price: number): void {
+  PACK_PRICE[key] = price;
+}
+
+export function packPrice(key: string): number {
+  return PACK_PRICE[key] ?? 1000;
 }

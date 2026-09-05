@@ -514,9 +514,13 @@ export const TOTAL_COUNT = COLLECTIBLES.length;
 // ============================================================
 //  Pakete
 // ============================================================
-export type PackType = "starter" | "standard" | "deluxe" | "mythic" | "ultra" | "celestial";
+export type PackBuiltin = "starter" | "standard" | "deluxe" | "mythic" | "ultra" | "celestial";
+/** Eingebaute Pakete plus vom Admin erstellte Kisten (freie Keys). */
+export type PackType = PackBuiltin | (string & {});
 
-export const PACK_META: Record<PackType, { label: string; emoji: string; color: string; size: number; desc: string }> = {
+export type PackMeta = { label: string; emoji: string; color: string; size: number; desc: string; maxSize?: number };
+
+export const PACK_META: Record<string, PackMeta> = {
   starter:   { label: "Starter-Paket",    emoji: "📦", color: "#9ca3af", size: 3,  desc: "Kleine Kiste mit 3 Items." },
   standard:  { label: "Standard-Kiste",   emoji: "🎁", color: "#4ade80", size: 5,  desc: "5 Items, oft ungewöhnlich." },
   deluxe:    { label: "Deluxe-Truhe",     emoji: "🧰", color: "#c084fc", size: 8,  desc: "8 Items, garantiert selten." },
@@ -525,7 +529,14 @@ export const PACK_META: Record<PackType, { label: string; emoji: string; color: 
   celestial: { label: "Himmels-Reliquiar",emoji: "🌠", color: "#00f0ff", size: 25, desc: "25 Items, garantiert kosmisch, himmlisch möglich." },
 };
 
-const WEIGHTS: Record<PackType, Record<Rarity, number>> = {
+const FALLBACK_PACK: PackMeta = { label: "Kiste", emoji: "🎁", color: "#9ca3af", size: 3, desc: "Sammelkiste." };
+
+/** Sichere Metadaten-Abfrage (auch für unbekannte Cloud-Kisten). */
+export function packMeta(p: PackType): PackMeta {
+  return PACK_META[p as string] ?? FALLBACK_PACK;
+}
+
+const WEIGHTS: Record<string, Record<string, number>> = {
   starter:   { common: 75, uncommon: 22, rare: 3,  epic: 0,  legendary: 0, mythical: 0, cosmic: 0, celestial: 0, interplanetary: 0, ultimate: 0 },
   standard:  { common: 45, uncommon: 40, rare: 13, epic: 2,  legendary: 0, mythical: 0, cosmic: 0, celestial: 0, interplanetary: 0, ultimate: 0 },
   deluxe:    { common: 20, uncommon: 40, rare: 30, epic: 9,  legendary: 1, mythical: 0, cosmic: 0, celestial: 0, interplanetary: 0, ultimate: 0 },
@@ -534,7 +545,7 @@ const WEIGHTS: Record<PackType, Record<Rarity, number>> = {
   celestial: { common: 0,  uncommon: 0,  rare: 10, epic: 24, legendary: 24,mythical: 21,cosmic: 14,celestial: 5, interplanetary: 1.7, ultimate: 0.3 },
 };
 
-const GUARANTEES: Record<PackType, Rarity | null> = {
+const GUARANTEES: Record<string, Rarity | null> = {
   starter: null,
   standard: null,
   deluxe: "rare",
@@ -543,7 +554,7 @@ const GUARANTEES: Record<PackType, Rarity | null> = {
   celestial: "cosmic",
 };
 
-const BY_RARITY: Record<Rarity, Collectible[]> = {
+const BY_RARITY: Record<string, Collectible[]> = {
   common:    COLLECTIBLES.filter((c) => c.rarity === "common"),
   uncommon:  COLLECTIBLES.filter((c) => c.rarity === "uncommon"),
   rare:      COLLECTIBLES.filter((c) => c.rarity === "rare"),
@@ -557,8 +568,9 @@ const BY_RARITY: Record<Rarity, Collectible[]> = {
 };
 
 function pickRarity(pack: PackType): Rarity {
-  const w = WEIGHTS[pack];
+  const w = WEIGHTS[pack as string] ?? WEIGHTS["starter"];
   const total = Object.values(w).reduce((a, b) => a + b, 0);
+  if (total <= 0) return "common";
   let r = Math.random() * total;
   for (const [rar, weight] of Object.entries(w) as [Rarity, number][]) {
     r -= weight;
@@ -569,20 +581,27 @@ function pickRarity(pack: PackType): Rarity {
 
 function pickItem(rarity: Rarity): Collectible {
   const pool = BY_RARITY[rarity];
-  if (pool.length === 0) return BY_RARITY.common[0];
+  if (!pool || pool.length === 0) return BY_RARITY["common"][0];
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
 export function rollPack(pack: PackType): Collectible[] {
-  const size = PACK_META[pack].size;
+  const meta = packMeta(pack);
+  const min = meta.size;
+  const max = Math.max(min, meta.maxSize ?? min);
+  const size = min + Math.floor(Math.random() * (max - min + 1));
   const items: Collectible[] = [];
-  const guarantee = GUARANTEES[pack];
+  const guarantee = GUARANTEES[pack as string] ?? null;
   if (guarantee) items.push(pickItem(guarantee));
   while (items.length < size) items.push(pickItem(pickRarity(pack)));
   return items;
 }
 
 export function rollWorldPackType(): PackType {
+  // Admin-Kisten mit eigener Fundchance zuerst prüfen.
+  for (const p of runtimePacks) {
+    if (p.worldChance > 0 && Math.random() < p.worldChance) return p.key;
+  }
   const r = Math.random();
   if (r < 0.60) return "starter";
   if (r < 0.82) return "standard";
@@ -593,6 +612,48 @@ export function rollWorldPackType(): PackType {
 }
 
 export const PACK_TYPES: PackType[] = ["starter", "standard", "deluxe", "mythic", "ultra", "celestial"];
+
+// ---------------------- Admin-Kisten ----------------------
+
+export type RuntimePackDef = {
+  key: string;
+  label: string;
+  emoji: string;
+  color: string;
+  description: string;
+  price: number;
+  minItems: number;
+  maxItems: number;
+  rarityWeights: Record<string, number>;
+  guarantee: Rarity | null;
+  worldChance: number;
+};
+
+const runtimePacks: RuntimePackDef[] = [];
+export function getRuntimePacks(): RuntimePackDef[] {
+  return [...runtimePacks];
+}
+export function isRuntimePack(key: string): boolean {
+  return runtimePacks.some((p) => p.key === key);
+}
+
+/** Registriert eine vom Admin erstellte Kiste im gesamten Spiel. */
+export function registerRuntimePack(def: RuntimePackDef): void {
+  PACK_META[def.key] = {
+    label: def.label,
+    emoji: def.emoji,
+    color: def.color,
+    size: Math.max(1, def.minItems),
+    maxSize: Math.max(def.minItems, def.maxItems),
+    desc: def.description,
+  };
+  WEIGHTS[def.key] = { ...def.rarityWeights };
+  GUARANTEES[def.key] = def.guarantee;
+  if (!PACK_TYPES.includes(def.key)) PACK_TYPES.push(def.key);
+  const i = runtimePacks.findIndex((p) => p.key === def.key);
+  if (i >= 0) runtimePacks[i] = def;
+  else runtimePacks.push(def);
+}
 
 // ============================================================
 //  Laufzeit-Registry: Admin-Seltenheiten & Admin-Items
