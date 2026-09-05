@@ -197,6 +197,63 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_packs: {
+        Row: {
+          active: boolean
+          author_id: string
+          color: string
+          created_at: string
+          description: string
+          emoji: string
+          guarantee: Json
+          id: string
+          key: string
+          label: string
+          max_items: number
+          min_items: number
+          price: number
+          rarity_weights: Json
+          updated_at: string
+          world_chance: number
+        }
+        Insert: {
+          active?: boolean
+          author_id: string
+          color?: string
+          created_at?: string
+          description?: string
+          emoji?: string
+          guarantee?: Json
+          id?: string
+          key: string
+          label: string
+          max_items?: number
+          min_items?: number
+          price?: number
+          rarity_weights?: Json
+          updated_at?: string
+          world_chance?: number
+        }
+        Update: {
+          active?: boolean
+          author_id?: string
+          color?: string
+          created_at?: string
+          description?: string
+          emoji?: string
+          guarantee?: Json
+          id?: string
+          key?: string
+          label?: string
+          max_items?: number
+          min_items?: number
+          price?: number
+          rarity_weights?: Json
+          updated_at?: string
+          world_chance?: number
+        }
+        Relationships: []
+      }
       custom_rarities: {
         Row: {
           active: boolean
