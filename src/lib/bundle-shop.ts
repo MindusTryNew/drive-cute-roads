@@ -190,3 +190,12 @@ export function refreshBundlePools(): void {
 export function rarityPrice(key: string): number {
   return RARITY_PRICE[key as Rarity] ?? 500;
 }
+
+/** Preis einer Admin-Kiste registrieren. */
+export function registerRuntimePackPrice(key: string, price: number): void {
+  PACK_PRICE[key] = price;
+}
+
+export function packPrice(key: string): number {
+  return PACK_PRICE[key] ?? 1000;
+}
