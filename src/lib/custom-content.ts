@@ -1,15 +1,16 @@
-// Admin-Inhalte aus der Cloud: eigene Seltenheiten + eigene Sammelitems.
+// Admin-Inhalte aus der Cloud: eigene Seltenheiten, Sammelitems und Kisten.
 // Wird beim Start einmal geladen und in die globalen Registries eingespielt.
 import { supabase } from "@/integrations/supabase/client";
 import {
   registerRuntimeRarity,
   registerRuntimeItems,
+  registerRuntimePack,
   type Collectible,
   type Effect,
   type PackType,
   type Rarity,
 } from "./collectibles";
-import { registerRuntimeRarityPrice, refreshBundlePools } from "./bundle-shop";
+import { registerRuntimeRarityPrice, registerRuntimePackPrice, refreshBundlePools } from "./bundle-shop";
 import { registerRuntimeScrapValue } from "./crafting";
 
 export type CustomRarityRow = {
@@ -37,9 +38,26 @@ export type CustomItemRow = {
   active: boolean;
 };
 
+export type CustomPackRow = {
+  id: string;
+  key: string;
+  label: string;
+  emoji: string;
+  color: string;
+  description: string;
+  price: number;
+  min_items: number;
+  max_items: number;
+  rarity_weights: Record<string, number>;
+  guarantee: { rarity?: string } | Record<string, never>;
+  world_chance: number;
+  active: boolean;
+};
+
 let loaded = false;
 let rarities: CustomRarityRow[] = [];
 let items: CustomItemRow[] = [];
+let packs: CustomPackRow[] = [];
 
 const listeners = new Set<() => void>();
 export function subscribeCustomContent(cb: () => void): () => void {
@@ -50,6 +68,7 @@ const emit = () => { for (const l of listeners) l(); };
 
 export function getCustomRarities(): CustomRarityRow[] { return [...rarities]; }
 export function getCustomItems(): CustomItemRow[] { return [...items]; }
+export function getCustomPacks(): CustomPackRow[] { return [...packs]; }
 
 function toCollectible(r: CustomItemRow): Collectible {
   const eff = r.effect && typeof r.effect === "object" && "kind" in r.effect
