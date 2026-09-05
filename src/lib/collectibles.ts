@@ -554,7 +554,7 @@ const GUARANTEES: Record<string, Rarity | null> = {
   celestial: "cosmic",
 };
 
-const BY_RARITY: Record<Rarity, Collectible[]> = {
+const BY_RARITY: Record<string, Collectible[]> = {
   common:    COLLECTIBLES.filter((c) => c.rarity === "common"),
   uncommon:  COLLECTIBLES.filter((c) => c.rarity === "uncommon"),
   rare:      COLLECTIBLES.filter((c) => c.rarity === "rare"),
@@ -568,8 +568,9 @@ const BY_RARITY: Record<Rarity, Collectible[]> = {
 };
 
 function pickRarity(pack: PackType): Rarity {
-  const w = WEIGHTS[pack];
+  const w = WEIGHTS[pack as string] ?? WEIGHTS["starter"];
   const total = Object.values(w).reduce((a, b) => a + b, 0);
+  if (total <= 0) return "common";
   let r = Math.random() * total;
   for (const [rar, weight] of Object.entries(w) as [Rarity, number][]) {
     r -= weight;
@@ -580,20 +581,27 @@ function pickRarity(pack: PackType): Rarity {
 
 function pickItem(rarity: Rarity): Collectible {
   const pool = BY_RARITY[rarity];
-  if (pool.length === 0) return BY_RARITY.common[0];
+  if (!pool || pool.length === 0) return BY_RARITY["common"][0];
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
 export function rollPack(pack: PackType): Collectible[] {
-  const size = PACK_META[pack].size;
+  const meta = packMeta(pack);
+  const min = meta.size;
+  const max = Math.max(min, meta.maxSize ?? min);
+  const size = min + Math.floor(Math.random() * (max - min + 1));
   const items: Collectible[] = [];
-  const guarantee = GUARANTEES[pack];
+  const guarantee = GUARANTEES[pack as string] ?? null;
   if (guarantee) items.push(pickItem(guarantee));
   while (items.length < size) items.push(pickItem(pickRarity(pack)));
   return items;
 }
 
 export function rollWorldPackType(): PackType {
+  // Admin-Kisten mit eigener Fundchance zuerst prüfen.
+  for (const p of runtimePacks) {
+    if (p.worldChance > 0 && Math.random() < p.worldChance) return p.key;
+  }
   const r = Math.random();
   if (r < 0.60) return "starter";
   if (r < 0.82) return "standard";
@@ -604,6 +612,48 @@ export function rollWorldPackType(): PackType {
 }
 
 export const PACK_TYPES: PackType[] = ["starter", "standard", "deluxe", "mythic", "ultra", "celestial"];
+
+// ---------------------- Admin-Kisten ----------------------
+
+export type RuntimePackDef = {
+  key: string;
+  label: string;
+  emoji: string;
+  color: string;
+  description: string;
+  price: number;
+  minItems: number;
+  maxItems: number;
+  rarityWeights: Record<string, number>;
+  guarantee: Rarity | null;
+  worldChance: number;
+};
+
+const runtimePacks: RuntimePackDef[] = [];
+export function getRuntimePacks(): RuntimePackDef[] {
+  return [...runtimePacks];
+}
+export function isRuntimePack(key: string): boolean {
+  return runtimePacks.some((p) => p.key === key);
+}
+
+/** Registriert eine vom Admin erstellte Kiste im gesamten Spiel. */
+export function registerRuntimePack(def: RuntimePackDef): void {
+  PACK_META[def.key] = {
+    label: def.label,
+    emoji: def.emoji,
+    color: def.color,
+    size: Math.max(1, def.minItems),
+    maxSize: Math.max(def.minItems, def.maxItems),
+    desc: def.description,
+  };
+  WEIGHTS[def.key] = { ...def.rarityWeights };
+  GUARANTEES[def.key] = def.guarantee;
+  if (!PACK_TYPES.includes(def.key)) PACK_TYPES.push(def.key);
+  const i = runtimePacks.findIndex((p) => p.key === def.key);
+  if (i >= 0) runtimePacks[i] = def;
+  else runtimePacks.push(def);
+}
 
 // ============================================================
 //  Laufzeit-Registry: Admin-Seltenheiten & Admin-Items
