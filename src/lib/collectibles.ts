@@ -514,9 +514,13 @@ export const TOTAL_COUNT = COLLECTIBLES.length;
 // ============================================================
 //  Pakete
 // ============================================================
-export type PackType = "starter" | "standard" | "deluxe" | "mythic" | "ultra" | "celestial";
+export type PackBuiltin = "starter" | "standard" | "deluxe" | "mythic" | "ultra" | "celestial";
+/** Eingebaute Pakete plus vom Admin erstellte Kisten (freie Keys). */
+export type PackType = PackBuiltin | (string & {});
 
-export const PACK_META: Record<PackType, { label: string; emoji: string; color: string; size: number; desc: string }> = {
+export type PackMeta = { label: string; emoji: string; color: string; size: number; desc: string; maxSize?: number };
+
+export const PACK_META: Record<string, PackMeta> = {
   starter:   { label: "Starter-Paket",    emoji: "📦", color: "#9ca3af", size: 3,  desc: "Kleine Kiste mit 3 Items." },
   standard:  { label: "Standard-Kiste",   emoji: "🎁", color: "#4ade80", size: 5,  desc: "5 Items, oft ungewöhnlich." },
   deluxe:    { label: "Deluxe-Truhe",     emoji: "🧰", color: "#c084fc", size: 8,  desc: "8 Items, garantiert selten." },
@@ -525,7 +529,14 @@ export const PACK_META: Record<PackType, { label: string; emoji: string; color: 
   celestial: { label: "Himmels-Reliquiar",emoji: "🌠", color: "#00f0ff", size: 25, desc: "25 Items, garantiert kosmisch, himmlisch möglich." },
 };
 
-const WEIGHTS: Record<PackType, Record<Rarity, number>> = {
+const FALLBACK_PACK: PackMeta = { label: "Kiste", emoji: "🎁", color: "#9ca3af", size: 3, desc: "Sammelkiste." };
+
+/** Sichere Metadaten-Abfrage (auch für unbekannte Cloud-Kisten). */
+export function packMeta(p: PackType): PackMeta {
+  return PACK_META[p as string] ?? FALLBACK_PACK;
+}
+
+const WEIGHTS: Record<string, Record<string, number>> = {
   starter:   { common: 75, uncommon: 22, rare: 3,  epic: 0,  legendary: 0, mythical: 0, cosmic: 0, celestial: 0, interplanetary: 0, ultimate: 0 },
   standard:  { common: 45, uncommon: 40, rare: 13, epic: 2,  legendary: 0, mythical: 0, cosmic: 0, celestial: 0, interplanetary: 0, ultimate: 0 },
   deluxe:    { common: 20, uncommon: 40, rare: 30, epic: 9,  legendary: 1, mythical: 0, cosmic: 0, celestial: 0, interplanetary: 0, ultimate: 0 },
@@ -534,7 +545,7 @@ const WEIGHTS: Record<PackType, Record<Rarity, number>> = {
   celestial: { common: 0,  uncommon: 0,  rare: 10, epic: 24, legendary: 24,mythical: 21,cosmic: 14,celestial: 5, interplanetary: 1.7, ultimate: 0.3 },
 };
 
-const GUARANTEES: Record<PackType, Rarity | null> = {
+const GUARANTEES: Record<string, Rarity | null> = {
   starter: null,
   standard: null,
   deluxe: "rare",
