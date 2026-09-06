@@ -13,6 +13,8 @@ import {
 import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot } from "@/lib/coins";
 import { isAdmin, subscribeAdmin, unlockAdmin } from "@/lib/admin";
 import { AdminPanel } from "@/components/AdminPanel";
+import { AppShell, type NavGroup } from "@/components/shell/AppShell";
+import { loadCustomContent } from "@/lib/custom-content";
 import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 import { AccountMenu } from "@/components/AccountMenu";
 import { RegionPanel } from "@/components/RegionPanel";
@@ -89,8 +91,9 @@ export function CarSelect({
   const [customCars, setCustomCars] = useState<CustomCar[]>([]);
   const [remaining, setRemaining] = useState(DAILY_LIMIT);
   const [error, setError] = useState<string | null>(null);
-  const [coins, setCoins] = useState(getCoins());
-  const [slots, setSlots] = useState(getSlots());
+  const [mounted, setMounted] = useState(false);
+  const [coins, setCoins] = useState(0);
+  const [slots, setSlots] = useState(1);
   const [dev, setDev] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminCode, setAdminCode] = useState("");
@@ -112,6 +115,10 @@ export function CarSelect({
   const [giftClaimed, setGiftClaimed] = useState(true);
 
   useEffect(() => {
+    setMounted(true);
+    void loadCustomContent();
+    setCoins(getCoins());
+    setSlots(getSlots());
     setCustomCars(listCars());
     setRemaining(remainingToday());
     const un = subscribeCoins(setCoins);
@@ -170,109 +177,107 @@ export function CarSelect({
     { id: "online", label: "Online", desc: "Raum mit Freunden" },
   ];
 
+  const groups: NavGroup[] = [
+    {
+      title: "Fahren",
+      items: [
+        { id: "regions", label: "Regionen", icon: "🗺️", onClick: () => setShowRegions(true) },
+        { id: "mapeditor", label: "Map-Editor", icon: "🧱", onClick: () => onOpenMapEditor?.(), hidden: !onOpenMapEditor },
+      ],
+    },
+    {
+      title: "Fortschritt",
+      items: [
+        { id: "missions", label: "Missionen", icon: "🎯", onClick: () => onOpenMissions?.(), hidden: !onOpenMissions },
+        { id: "daily", label: "Daily-Streak", icon: "🔥", onClick: () => setShowDaily(true) },
+        { id: "prestige", label: `Prestige · Lv ${mounted ? prestigeLevel : 0}`, icon: "✨", onClick: () => setShowPrestige(true) },
+        { id: "premium", label: "Premium-Pass", icon: "💎", onClick: () => setShowPremium(true), highlight: mounted && premiumActive },
+      ],
+    },
+    {
+      title: "Sammeln",
+      items: [
+        { id: "inventory", label: "Inventar", icon: "🎒", onClick: () => onOpenInventory?.(), hidden: !onOpenInventory },
+        { id: "catalog", label: "Katalog", icon: "📖", onClick: () => onOpenCatalog?.(), hidden: !onOpenCatalog },
+        { id: "bundles", label: "Bundle-Shop", icon: "🎁", onClick: () => onOpenBundleShop?.(), hidden: !onOpenBundleShop, highlight: true },
+      ],
+    },
+    {
+      title: "Handel",
+      items: [
+        { id: "market", label: "Markt", icon: "🏷️", onClick: () => onOpenMarket?.(), hidden: !onOpenMarket },
+      ],
+    },
+    {
+      title: "Werkstatt",
+      items: [
+        { id: "mods", label: "Mods", icon: "🧩", onClick: () => onOpenMods?.(), hidden: !onOpenMods },
+        { id: "tutorial", label: "Modding-Kampagne", icon: "📘", onClick: () => onOpenTutorial?.(), hidden: !onOpenTutorial },
+      ],
+    },
+    {
+      title: "Sonstiges",
+      items: [
+        { id: "news", label: "News", icon: "📰", onClick: () => setShowNews(true), badge: mounted && newsUnread ? (newsCount > 9 ? "9+" : newsCount) : undefined },
+        { id: "anniversary", label: "Jubiläum", icon: "🎉", onClick: () => setShowAnniversary(true), highlight: mounted && !giftClaimed },
+        { id: "code", label: "Code einlösen", icon: "🎟️", onClick: () => setShowRedeem(true) },
+        { id: "account", label: "Konto & Sync", icon: "☁️", onClick: () => setShowAccount(true) },
+        { id: "admin", label: "Admin-Konsole", icon: "🛡️", onClick: () => setShowAdmin(true), hidden: !dev, highlight: true },
+      ],
+    },
+  ];
+
+  const status = (
+    <div className="space-y-2 rounded-xl border bg-background/40 p-3">
+      <div className="flex items-center justify-between text-sm">
+        <span>🪙 Coins</span>
+        <span className="font-mono tabular-nums">{mounted ? coins.toLocaleString() : "—"}</span>
+      </div>
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>Garage</span>
+        <span className="font-mono tabular-nums">{mounted ? `${customCars.length}/${slots}` : "—"}</span>
+      </div>
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>Prestige</span>
+        <span className="font-mono tabular-nums">{mounted ? `Lv ${prestigeLevel}${prestigePoints > 0 ? ` · ${prestigePoints}P` : ""}` : "—"}</span>
+      </div>
+      <div className="flex items-center justify-between text-xs text-muted-foreground">
+        <span>Premium</span>
+        <span className="font-mono">
+          {mounted
+            ? premiumActive && premiumUntil
+              ? formatRemaining(Math.max(0, premiumUntil - Date.now()))
+              : "inaktiv"
+            : "—"}
+        </span>
+      </div>
+    </div>
+  );
+
+  const sidebarFooter = !dev ? (
+    <input
+      value={adminCode}
+      onChange={(e) => setAdminCode(e.target.value.toUpperCase())}
+      onKeyDown={async (e) => {
+        if (e.key !== "Enter") return;
+        const res = await unlockAdmin(adminCode);
+        if (res.ok) { toast.success(res.message); setAdminCode(""); }
+        else toast.error(res.message);
+      }}
+      placeholder="Admin-Code"
+      className="w-full rounded-lg border bg-background px-2 py-1.5 font-mono text-xs outline-none focus:border-primary"
+    />
+  ) : (
+    <p className="px-2 font-mono text-[10px] uppercase tracking-widest text-primary">Admin aktiv</p>
+  );
+
   return (
-    <main className="relative h-screen w-screen overflow-y-auto">
+    <AppShell groups={groups} status={status} footer={sidebarFooter}>
+      <main className="relative min-h-full">
       <div className="pointer-events-none absolute inset-0 opacity-30"
            style={{ backgroundImage: "linear-gradient(oklch(1 0 0 / 0.06) 1px, transparent 1px), linear-gradient(90deg, oklch(1 0 0 / 0.06) 1px, transparent 1px)", backgroundSize: "60px 60px" }} />
 
       <div className="relative mx-auto flex min-h-full max-w-6xl flex-col px-6 py-10">
-        <header className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className="h-9 w-9 rounded-lg" style={{ background: "linear-gradient(135deg, var(--primary), var(--accent))", boxShadow: "var(--hud-glow)" }} />
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.3em] text-muted-foreground">Drift Lab v2.0</p>
-              <h1 className="text-xl font-bold">Garage</h1>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {onOpenMissions && (
-              <button onClick={onOpenMissions}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Missionen</button>
-            )}
-            {onOpenMods && (
-              <button onClick={onOpenMods}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Mods</button>
-            )}
-            {onOpenTutorial && (
-              <button onClick={onOpenTutorial}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">📘 Tutorial</button>
-            )}
-            {onOpenMarket && (
-              <button onClick={onOpenMarket}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">Markt</button>
-            )}
-            {onOpenMapEditor && (
-              <button onClick={onOpenMapEditor}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🗺️ Map-Editor</button>
-            )}
-            {onOpenInventory && (
-              <button onClick={onOpenInventory}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🎒 Inventar</button>
-            )}
-            {onOpenCatalog && (
-              <button onClick={onOpenCatalog}
-                className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">📖 Katalog</button>
-            )}
-            {onOpenBundleShop && (
-              <button onClick={onOpenBundleShop}
-                className="rounded-lg border border-primary/60 bg-primary/10 px-3 py-1.5 text-sm hover:bg-primary/20">🎁 Bundles</button>
-            )}
-            <button onClick={() => setShowPremium(true)}
-              className={`rounded-lg border px-3 py-1.5 text-sm hover:border-primary ${premiumActive ? "border-primary/60 bg-primary/10" : ""}`}
-              title={premiumActive && premiumUntil ? `Premium aktiv noch ${formatRemaining(Math.max(0, premiumUntil - Date.now()))}` : "Premium-Pass"}>
-              💎 Premium{premiumActive ? " ✓" : ""}
-            </button>
-            <button onClick={() => setShowNews(true)}
-              className="relative rounded-lg border px-3 py-1.5 text-sm hover:border-primary">
-              📰 News
-              {newsUnread && (
-                <span className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-primary text-[9px] font-bold text-primary-foreground">
-                  {newsCount > 9 ? "9+" : newsCount}
-                </span>
-              )}
-            </button>
-            <button onClick={() => setShowAnniversary(true)}
-              className={`rounded-lg border px-3 py-1.5 text-sm ${giftClaimed ? "hover:border-primary" : "border-orange-500/60 bg-orange-500/10 hover:bg-orange-500/20"}`}>
-              🎉 Jubiläum{giftClaimed ? "" : " · Geschenk!"}
-            </button>
-            <button onClick={() => setShowRegions(true)}
-              className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🗺️ Regionen</button>
-            <button onClick={() => setShowRedeem(true)}
-              className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">🎁 Code</button>
-            <button onClick={() => setShowAccount(true)}
-              className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">☁️ Konto</button>
-            <button onClick={() => setShowDaily(true)}
-              className="rounded-lg border border-orange-500/40 bg-orange-500/10 px-3 py-1.5 text-sm hover:bg-orange-500/20">🔥 Daily</button>
-            <button onClick={() => setShowPrestige(true)}
-              className="rounded-lg border border-primary/60 bg-primary/10 px-3 py-1.5 text-sm hover:bg-primary/20">
-              ✨ Lv {prestigeLevel}{prestigePoints > 0 ? ` · ${prestigePoints}P` : ""}
-            </button>
-            {dev ? (
-              <button onClick={() => setShowAdmin(true)}
-                className="rounded-lg border border-primary bg-primary/10 px-3 py-1.5 font-mono text-sm">🛡️ ADMIN</button>
-            ) : (
-              <div className="flex items-center gap-1">
-                <input
-                  value={adminCode}
-                  onChange={(e) => setAdminCode(e.target.value.toUpperCase())}
-                  onKeyDown={async (e) => {
-                    if (e.key !== "Enter") return;
-                    const res = await unlockAdmin(adminCode);
-                    if (res.ok) { toast.success(res.message); setAdminCode(""); }
-                    else toast.error(res.message);
-                  }}
-                  placeholder="Admin-Code"
-                  className="w-28 rounded-lg border bg-background px-2 py-1.5 font-mono text-xs outline-none focus:border-primary"
-                />
-              </div>
-            )}
-            <div className="flex items-center gap-2 rounded-lg border bg-card px-3 py-1.5">
-              <span>🪙</span>
-              <span className="font-mono text-sm tabular-nums">{coins}</span>
-            </div>
-          </div>
-        </header>
-
         {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
         {showRedeem && <RedeemCodeDialog onClose={() => setShowRedeem(false)} />}
         {showAccount && <AccountMenu onClose={() => setShowAccount(false)} />}
@@ -288,7 +293,7 @@ export function CarSelect({
           />
         )}
 
-        <section className="mt-12">
+        <section className="mt-6">
           <h2 className="text-4xl font-bold tracking-tight md:text-5xl">{headline ?? "Wähle dein Fahrzeug."}</h2>
           <p className="mt-3 max-w-xl text-muted-foreground">Drei Werks-Charaktere — oder bau dein eigenes Auto im Profi-Editor.</p>
         </section>
@@ -442,7 +447,8 @@ export function CarSelect({
           © Drift Lab — Mod-Sharing über .car.json
         </footer>
       </div>
-    </main>
+      </main>
+    </AppShell>
   );
 }
 

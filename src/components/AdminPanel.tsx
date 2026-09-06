@@ -27,6 +27,12 @@ import {
   type ItemRow,
   type BundleRow,
   type NewItem,
+  listCustomPacks,
+  createCustomPack,
+  updateCustomPack,
+  setPackActive,
+  deleteCustomPack,
+  type PackRow,
 } from "@/lib/admin";
 import {
   COLLECTIBLES,
@@ -44,59 +50,77 @@ import { loadCustomContent } from "@/lib/custom-content";
 import { PRESETS } from "@/lib/preset-cars";
 import { bundleValue, normalizeContents, type BundleContents, type Booster } from "@/lib/admin-bundles";
 
-type Tab = "missions" | "series" | "rarities" | "items" | "bundles" | "coins";
+type Tab = "missions" | "series" | "rarities" | "items" | "packs" | "bundles" | "coins";
+
+const TABS: [Tab, string, string][] = [
+  ["missions", "🎯", "Missionen"],
+  ["series", "🗂️", "Sammelserien"],
+  ["rarities", "💎", "Seltenheiten"],
+  ["items", "🧪", "Item-Generator"],
+  ["packs", "📦", "Kisten-Werkstatt"],
+  ["bundles", "🎁", "Bundles"],
+  ["coins", "🪙", "Coins"],
+];
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("missions");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div
-        className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-primary/50 bg-card"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-center justify-between border-b px-5 py-4">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary">Admin-Konsole</p>
-            <h2 className="text-lg font-bold">Inhalte verwalten</h2>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => { revokeAdmin(); toast.info("Admin-Rechte lokal entfernt."); onClose(); }}
-              className="rounded-lg border px-3 py-1.5 text-xs hover:border-destructive hover:text-destructive"
-            >
-              Abmelden
-            </button>
-            <button onClick={onClose} className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">✕</button>
-          </div>
-        </header>
-
-        <div className="flex flex-wrap gap-2 border-b px-5 py-2">
-          {([
-            ["missions", "🎯 Missionen"],
-            ["series", "🗂️ Sammelserien"],
-            ["rarities", "💎 Seltenheiten"],
-            ["items", "🧪 Item-Generator"],
-            ["bundles", "🎁 Bundles"],
-            ["coins", "🪙 Coins"],
-          ] as [Tab, string][]).map(([id, label]) => (
+    <div className="fixed inset-0 z-50 flex bg-background">
+      <aside className="hidden w-60 shrink-0 flex-col border-r bg-card/40 p-4 md:flex">
+        <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary">Admin-Konsole</p>
+        <h2 className="mb-4 text-lg font-bold">Inhalte verwalten</h2>
+        <nav className="flex-1 space-y-1 overflow-y-auto">
+          {TABS.map(([id, icon, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`rounded-full border px-3 py-1 text-xs ${tab === id ? "border-primary bg-primary/15" : "hover:border-primary"}`}
+              className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm ${
+                tab === id ? "border-primary bg-primary/15" : "border-transparent hover:border-primary/40 hover:bg-card"
+              }`}
             >
-              {label}
+              <span className="w-5 text-center">{icon}</span>
+              <span className="truncate">{label}</span>
             </button>
           ))}
-        </div>
+        </nav>
+        <button
+          onClick={() => { revokeAdmin(); toast.info("Admin-Rechte lokal entfernt."); onClose(); }}
+          className="mt-3 rounded-lg border px-3 py-1.5 text-xs hover:border-destructive hover:text-destructive"
+        >
+          Admin abmelden
+        </button>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between gap-3 border-b px-5 py-3">
+          <div className="flex flex-1 gap-2 overflow-x-auto md:hidden">
+            {TABS.map(([id, icon, label]) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs ${tab === id ? "border-primary bg-primary/15" : ""}`}
+              >
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+          <h3 className="hidden text-sm font-bold md:block">
+            {TABS.find(([id]) => id === tab)?.[2]}
+          </h3>
+          <button onClick={onClose} className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">✕ Schließen</button>
+        </header>
 
         <div className="flex-1 overflow-y-auto p-5">
-          {tab === "missions" && <MissionsTab />}
-          {tab === "series" && <SeriesTab />}
-          {tab === "rarities" && <RaritiesTab />}
-          {tab === "items" && <ItemsTab />}
-          {tab === "bundles" && <BundlesTab />}
-          {tab === "coins" && <CoinsTab />}
+          <div className="mx-auto max-w-5xl">
+            {tab === "missions" && <MissionsTab />}
+            {tab === "series" && <SeriesTab />}
+            {tab === "rarities" && <RaritiesTab />}
+            {tab === "items" && <ItemsTab />}
+            {tab === "packs" && <PacksTab />}
+            {tab === "bundles" && <BundlesTab />}
+            {tab === "coins" && <CoinsTab />}
+          </div>
         </div>
       </div>
     </div>
@@ -895,3 +919,192 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
     </div>
   );
 }
+
+/* ==================== Kisten-Werkstatt ==================== */
+
+function PacksTab() {
+  const [rows, setRows] = useState<PackRow[]>([]);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [q, setQ] = useState("");
+
+  const [key, setKey] = useState("mystery_box");
+  const [label, setLabel] = useState("Mystery-Kiste");
+  const [emoji, setEmoji] = useState("📦");
+  const [color, setColor] = useState("#7dd3fc");
+  const [desc, setDesc] = useState("Eine geheimnisvolle Kiste.");
+  const [price, setPrice] = useState(5000);
+  const [minItems, setMinItems] = useState(3);
+  const [maxItems, setMaxItems] = useState(6);
+  const [guarantee, setGuarantee] = useState<string>("");
+  const [worldChance, setWorldChance] = useState(0);
+  const [weights, setWeights] = useState<Record<string, number>>(() =>
+    Object.fromEntries(RARITY_ORDER.map((r, i) => [r, i === 0 ? 60 : i === 1 ? 30 : i === 2 ? 10 : 0])),
+  );
+
+  const load = () => { listCustomPacks().then(setRows).catch(() => setRows([])); };
+  useEffect(load, []);
+
+  const reset = () => {
+    setEditId(null);
+    setKey("mystery_box"); setLabel("Mystery-Kiste"); setEmoji("📦"); setColor("#7dd3fc");
+    setDesc("Eine geheimnisvolle Kiste."); setPrice(5000); setMinItems(3); setMaxItems(6);
+    setGuarantee(""); setWorldChance(0);
+    setWeights(Object.fromEntries(RARITY_ORDER.map((r, i) => [r, i === 0 ? 60 : i === 1 ? 30 : i === 2 ? 10 : 0])));
+  };
+
+  const edit = (r: PackRow) => {
+    setEditId(r.id);
+    setKey(r.key); setLabel(r.label); setEmoji(r.emoji); setColor(r.color);
+    setDesc(r.description); setPrice(r.price); setMinItems(r.min_items); setMaxItems(r.max_items);
+    setGuarantee(String((r.guarantee as { rarity?: string })?.rarity ?? ""));
+    setWorldChance(Number(r.world_chance) || 0);
+    setWeights({ ...(r.rarity_weights ?? {}) });
+  };
+
+  const totalWeight = Object.values(weights).reduce((a, b) => a + (Number(b) || 0), 0);
+
+  const save = async () => {
+    const cleanKey = key.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+    if (cleanKey.length < 2) { toast.error("Bitte ein gültiges Kürzel angeben."); return; }
+    if (!label.trim()) { toast.error("Bitte einen Namen angeben."); return; }
+    if (totalWeight <= 0) { toast.error("Mindestens eine Seltenheit braucht eine Chance über 0."); return; }
+    if (maxItems < minItems) { toast.error("Maximale Item-Anzahl darf nicht kleiner als die minimale sein."); return; }
+    setBusy(true);
+    try {
+      const payload = {
+        key: cleanKey,
+        label: label.trim(),
+        emoji: emoji || "📦",
+        color,
+        description: desc,
+        price: Math.max(0, Math.round(price)),
+        min_items: Math.max(1, Math.round(minItems)),
+        max_items: Math.max(1, Math.round(maxItems)),
+        rarity_weights: weights,
+        guarantee: guarantee ? { rarity: guarantee } : {},
+        world_chance: Math.max(0, Math.min(0.2, worldChance)),
+      };
+      if (editId) await updateCustomPack(editId, payload);
+      else await createCustomPack(payload);
+      await loadCustomContent(true);
+      toast.success(editId ? "Kiste aktualisiert." : "Kiste online — für alle Spieler verfügbar.");
+      reset();
+      load();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+    } finally { setBusy(false); }
+  };
+
+  const filtered = rows.filter((r) =>
+    !q.trim() || (r.label + r.key).toLowerCase().includes(q.trim().toLowerCase()));
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-xl border bg-background/40 p-4">
+        <h4 className="mb-3 text-sm font-bold">{editId ? "Kiste bearbeiten" : "Neue Kiste bauen"}</h4>
+        <div className="grid gap-3 md:grid-cols-3">
+          <Field label="Name"><input value={label} onChange={(e) => setLabel(e.target.value)} className={INP} /></Field>
+          <Field label="Kürzel (ID)"><input value={key} onChange={(e) => setKey(e.target.value)} disabled={!!editId} className={INP} /></Field>
+          <Field label="Emoji"><input value={emoji} onChange={(e) => setEmoji(e.target.value)} className={INP} /></Field>
+          <Field label="Farbe"><input type="color" value={color} onChange={(e) => setColor(e.target.value)} className="h-9 w-full rounded-lg border bg-background" /></Field>
+          <Field label="Preis (Coins)"><input type="number" value={price} onChange={(e) => setPrice(+e.target.value)} className={INP} /></Field>
+          <Field label="Fundchance in der Welt (%)">
+            <input type="number" step="0.1" value={(worldChance * 100).toFixed(1)}
+              onChange={(e) => setWorldChance((+e.target.value || 0) / 100)} className={INP} />
+          </Field>
+          <Field label="Items min."><input type="number" value={minItems} onChange={(e) => setMinItems(+e.target.value)} className={INP} /></Field>
+          <Field label="Items max."><input type="number" value={maxItems} onChange={(e) => setMaxItems(+e.target.value)} className={INP} /></Field>
+          <Field label="Garantie">
+            <select value={guarantee} onChange={(e) => setGuarantee(e.target.value)} className={INP}>
+              <option value="">keine</option>
+              {RARITY_ORDER.map((r) => <option key={r} value={r}>{RARITY_LABEL[r] ?? r}</option>)}
+            </select>
+          </Field>
+          <div className="md:col-span-3">
+            <Field label="Beschreibung"><input value={desc} onChange={(e) => setDesc(e.target.value)} className={INP} /></Field>
+          </div>
+        </div>
+
+        <p className="mt-4 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">Chancen je Seltenheit</p>
+        <div className="mt-2 grid gap-2 md:grid-cols-2">
+          {RARITY_ORDER.map((r) => {
+            const w = Number(weights[r]) || 0;
+            const pct = totalWeight > 0 ? (w / totalWeight) * 100 : 0;
+            return (
+              <div key={r} className="flex items-center gap-2 text-xs">
+                <span className="w-28 truncate" style={{ color: RARITY_COLORS[r] }}>{RARITY_LABEL[r] ?? r}</span>
+                <input type="number" min={0} value={w}
+                  onChange={(e) => setWeights({ ...weights, [r]: Math.max(0, +e.target.value || 0) })}
+                  className="w-20 rounded-lg border bg-background px-2 py-1 outline-none focus:border-primary" />
+                <span className="font-mono tabular-nums text-muted-foreground">{pct.toFixed(1)} %</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button onClick={save} disabled={busy}
+            className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40">
+            {editId ? "Änderungen speichern" : "Kiste veröffentlichen"}
+          </button>
+          {editId && (
+            <button onClick={reset} className="rounded-lg border px-3 py-2 text-sm hover:border-primary">Abbrechen</button>
+          )}
+          <span className="text-xs text-muted-foreground">
+            Vorschau: {emoji} {label} · {minItems}–{maxItems} Items · 🪙 {price.toLocaleString()}
+          </span>
+        </div>
+      </section>
+
+      <section>
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <h4 className="text-sm font-bold">Vorhandene Kisten ({rows.length})</h4>
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Suchen…"
+            className="w-40 rounded-lg border bg-background px-2 py-1 text-xs outline-none focus:border-primary" />
+        </div>
+        {filtered.length === 0 ? (
+          <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
+            Noch keine eigenen Kisten.
+          </p>
+        ) : (
+          <ul className="space-y-2">
+            {filtered.map((r) => (
+              <li key={r.id} className="flex flex-wrap items-center gap-2 rounded-xl border bg-background/40 px-3 py-2 text-sm">
+                <span className="text-lg">{r.emoji}</span>
+                <span className="font-bold" style={{ color: r.color }}>{r.label}</span>
+                <span className="font-mono text-[10px] text-muted-foreground">{r.key}</span>
+                <span className="text-xs text-muted-foreground">
+                  {r.min_items}–{r.max_items} Items · 🪙 {r.price.toLocaleString()}
+                  {r.world_chance > 0 ? ` · Welt ${(r.world_chance * 100).toFixed(1)} %` : ""}
+                </span>
+                <span className="ml-auto flex gap-2">
+                  <button onClick={() => edit(r)} className="rounded-md border px-2 py-1 text-xs hover:border-primary">Bearbeiten</button>
+                  <button
+                    onClick={async () => {
+                      await setPackActive(r.id, !r.active);
+                      await loadCustomContent(true);
+                      load();
+                    }}
+                    className="rounded-md border px-2 py-1 text-xs hover:border-primary">
+                    {r.active ? "Deaktivieren" : "Aktivieren"}
+                  </button>
+                  <button
+                    onClick={async () => {
+                      if (!confirm(`„${r.label}" löschen?`)) return;
+                      await deleteCustomPack(r.id);
+                      load();
+                    }}
+                    className="rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10">✕</button>
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
+
+const INP = "w-full rounded-lg border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary";
+
