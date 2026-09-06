@@ -44,59 +44,77 @@ import { loadCustomContent } from "@/lib/custom-content";
 import { PRESETS } from "@/lib/preset-cars";
 import { bundleValue, normalizeContents, type BundleContents, type Booster } from "@/lib/admin-bundles";
 
-type Tab = "missions" | "series" | "rarities" | "items" | "bundles" | "coins";
+type Tab = "missions" | "series" | "rarities" | "items" | "packs" | "bundles" | "coins";
+
+const TABS: [Tab, string, string][] = [
+  ["missions", "🎯", "Missionen"],
+  ["series", "🗂️", "Sammelserien"],
+  ["rarities", "💎", "Seltenheiten"],
+  ["items", "🧪", "Item-Generator"],
+  ["packs", "📦", "Kisten-Werkstatt"],
+  ["bundles", "🎁", "Bundles"],
+  ["coins", "🪙", "Coins"],
+];
 
 export function AdminPanel({ onClose }: { onClose: () => void }) {
   const [tab, setTab] = useState<Tab>("missions");
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div
-        className="flex max-h-[88vh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-primary/50 bg-card"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-center justify-between border-b px-5 py-4">
-          <div>
-            <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary">Admin-Konsole</p>
-            <h2 className="text-lg font-bold">Inhalte verwalten</h2>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => { revokeAdmin(); toast.info("Admin-Rechte lokal entfernt."); onClose(); }}
-              className="rounded-lg border px-3 py-1.5 text-xs hover:border-destructive hover:text-destructive"
-            >
-              Abmelden
-            </button>
-            <button onClick={onClose} className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">✕</button>
-          </div>
-        </header>
-
-        <div className="flex flex-wrap gap-2 border-b px-5 py-2">
-          {([
-            ["missions", "🎯 Missionen"],
-            ["series", "🗂️ Sammelserien"],
-            ["rarities", "💎 Seltenheiten"],
-            ["items", "🧪 Item-Generator"],
-            ["bundles", "🎁 Bundles"],
-            ["coins", "🪙 Coins"],
-          ] as [Tab, string][]).map(([id, label]) => (
+    <div className="fixed inset-0 z-50 flex bg-background">
+      <aside className="hidden w-60 shrink-0 flex-col border-r bg-card/40 p-4 md:flex">
+        <p className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary">Admin-Konsole</p>
+        <h2 className="mb-4 text-lg font-bold">Inhalte verwalten</h2>
+        <nav className="flex-1 space-y-1 overflow-y-auto">
+          {TABS.map(([id, icon, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`rounded-full border px-3 py-1 text-xs ${tab === id ? "border-primary bg-primary/15" : "hover:border-primary"}`}
+              className={`flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left text-sm ${
+                tab === id ? "border-primary bg-primary/15" : "border-transparent hover:border-primary/40 hover:bg-card"
+              }`}
             >
-              {label}
+              <span className="w-5 text-center">{icon}</span>
+              <span className="truncate">{label}</span>
             </button>
           ))}
-        </div>
+        </nav>
+        <button
+          onClick={() => { revokeAdmin(); toast.info("Admin-Rechte lokal entfernt."); onClose(); }}
+          className="mt-3 rounded-lg border px-3 py-1.5 text-xs hover:border-destructive hover:text-destructive"
+        >
+          Admin abmelden
+        </button>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex items-center justify-between gap-3 border-b px-5 py-3">
+          <div className="flex flex-1 gap-2 overflow-x-auto md:hidden">
+            {TABS.map(([id, icon, label]) => (
+              <button
+                key={id}
+                onClick={() => setTab(id)}
+                className={`whitespace-nowrap rounded-full border px-3 py-1 text-xs ${tab === id ? "border-primary bg-primary/15" : ""}`}
+              >
+                {icon} {label}
+              </button>
+            ))}
+          </div>
+          <h3 className="hidden text-sm font-bold md:block">
+            {TABS.find(([id]) => id === tab)?.[2]}
+          </h3>
+          <button onClick={onClose} className="rounded-lg border px-3 py-1.5 text-sm hover:border-primary">✕ Schließen</button>
+        </header>
 
         <div className="flex-1 overflow-y-auto p-5">
-          {tab === "missions" && <MissionsTab />}
-          {tab === "series" && <SeriesTab />}
-          {tab === "rarities" && <RaritiesTab />}
-          {tab === "items" && <ItemsTab />}
-          {tab === "bundles" && <BundlesTab />}
-          {tab === "coins" && <CoinsTab />}
+          <div className="mx-auto max-w-5xl">
+            {tab === "missions" && <MissionsTab />}
+            {tab === "series" && <SeriesTab />}
+            {tab === "rarities" && <RaritiesTab />}
+            {tab === "items" && <ItemsTab />}
+            {tab === "packs" && <PacksTab />}
+            {tab === "bundles" && <BundlesTab />}
+            {tab === "coins" && <CoinsTab />}
+          </div>
         </div>
       </div>
     </div>
