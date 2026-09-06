@@ -440,7 +440,8 @@ export function CarSelect({
           © Drift Lab — Mod-Sharing über .car.json
         </footer>
       </div>
-    </main>
+      </main>
+    </AppShell>
   );
 }
 
