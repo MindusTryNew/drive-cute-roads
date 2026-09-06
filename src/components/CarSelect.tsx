@@ -13,6 +13,7 @@ import {
 import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot } from "@/lib/coins";
 import { isAdmin, subscribeAdmin, unlockAdmin } from "@/lib/admin";
 import { AdminPanel } from "@/components/AdminPanel";
+import { AppShell, type NavGroup } from "@/components/shell/AppShell";
 import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 import { AccountMenu } from "@/components/AccountMenu";
 import { RegionPanel } from "@/components/RegionPanel";
@@ -89,8 +90,9 @@ export function CarSelect({
   const [customCars, setCustomCars] = useState<CustomCar[]>([]);
   const [remaining, setRemaining] = useState(DAILY_LIMIT);
   const [error, setError] = useState<string | null>(null);
-  const [coins, setCoins] = useState(getCoins());
-  const [slots, setSlots] = useState(getSlots());
+  const [mounted, setMounted] = useState(false);
+  const [coins, setCoins] = useState(0);
+  const [slots, setSlots] = useState(1);
   const [dev, setDev] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [adminCode, setAdminCode] = useState("");
@@ -112,6 +114,9 @@ export function CarSelect({
   const [giftClaimed, setGiftClaimed] = useState(true);
 
   useEffect(() => {
+    setMounted(true);
+    setCoins(getCoins());
+    setSlots(getSlots());
     setCustomCars(listCars());
     setRemaining(remainingToday());
     const un = subscribeCoins(setCoins);
