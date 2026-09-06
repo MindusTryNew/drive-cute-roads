@@ -11,6 +11,8 @@ import { getCoins, spendCoins, subscribeCoins } from "@/lib/coins";
 import { saveCar } from "@/lib/garage";
 import { addToCollection } from "@/lib/collection";
 import { addPack } from "@/lib/inventory";
+import { getRuntimePacks, type RuntimePackDef } from "@/lib/collectibles";
+import { loadCustomContent, subscribeCustomContent } from "@/lib/custom-content";
 
 export function BundleShop({ onBack }: { onBack: () => void }) {
   const [bundles] = useState<BundleContent[]>(() => getTodayBundles());
@@ -76,6 +78,7 @@ export function BundleShop({ onBack }: { onBack: () => void }) {
           ))}
         </div>
 
+        <CustomPackSection coins={coins} />
         <AdminBundleSection coins={coins} />
       </div>
 
@@ -228,6 +231,51 @@ function AdminBundleSection({ coins }: { coins: number }) {
             </div>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+/** Vom Admin gebaute Kisten — direkt mit Coins kaufbar. */
+function CustomPackSection({ coins }: { coins: number }) {
+  const [packs, setPacks] = useState<RuntimePackDef[]>([]);
+
+  useEffect(() => {
+    const sync = () => setPacks(getRuntimePacks());
+    void loadCustomContent().then(sync);
+    sync();
+    return subscribeCustomContent(sync);
+  }, []);
+
+  if (packs.length === 0) return null;
+
+  return (
+    <section className="mt-12">
+      <h2 className="text-2xl font-bold">📦 Admin-Kisten</h2>
+      <p className="mt-1 text-sm text-muted-foreground">Von der Community-Leitung gebaute Sammelkisten.</p>
+      <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {packs.map((p) => (
+          <div key={p.key} className="rounded-2xl border bg-card p-5" style={{ borderColor: p.color + "66" }}>
+            <div className="text-3xl">{p.emoji}</div>
+            <h3 className="mt-2 text-lg font-bold" style={{ color: p.color }}>{p.label}</h3>
+            <p className="mt-1 text-sm text-muted-foreground">{p.description}</p>
+            <p className="mt-2 font-mono text-xs text-muted-foreground">
+              {p.minItems === p.maxItems ? `${p.minItems} Items` : `${p.minItems}–${p.maxItems} Items`}
+              {p.guarantee ? ` · Garantie: ${p.guarantee}` : ""}
+            </p>
+            <button
+              onClick={() => {
+                if (!spendCoins(p.price)) { toast.error(`Nicht genug Coins (🪙 ${p.price.toLocaleString()} nötig).`); return; }
+                addPack(p.key);
+                toast.success(`${p.emoji} ${p.label} ins Inventar gelegt!`);
+              }}
+              disabled={coins < p.price}
+              className="mt-4 w-full rounded-lg bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-40"
+            >
+              Kaufen · 🪙 {p.price.toLocaleString()}
+            </button>
+          </div>
+        ))}
       </div>
     </section>
   );
