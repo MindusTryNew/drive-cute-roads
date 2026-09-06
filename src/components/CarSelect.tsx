@@ -14,6 +14,7 @@ import { getCoins, subscribeCoins, getSlots, nextSlotPrice, spendCoins, addSlot 
 import { isAdmin, subscribeAdmin, unlockAdmin } from "@/lib/admin";
 import { AdminPanel } from "@/components/AdminPanel";
 import { AppShell, type NavGroup } from "@/components/shell/AppShell";
+import { loadCustomContent } from "@/lib/custom-content";
 import { RedeemCodeDialog } from "@/components/RedeemCodeDialog";
 import { AccountMenu } from "@/components/AccountMenu";
 import { RegionPanel } from "@/components/RegionPanel";
@@ -115,6 +116,7 @@ export function CarSelect({
 
   useEffect(() => {
     setMounted(true);
+    void loadCustomContent();
     setCoins(getCoins());
     setSlots(getSlots());
     setCustomCars(listCars());
