@@ -1108,11 +1108,3 @@ function PacksTab() {
 
 const INP = "w-full rounded-lg border bg-background px-2 py-1.5 text-sm outline-none focus:border-primary";
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1 block font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{label}</span>
-      {children}
-    </label>
-  );
-}
