@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { toast } from "sonner";
+import { Gamepad2 } from "lucide-react";
+import { readDrivingPads, type DrivingPad } from "@/lib/gamepad";
 import type { CarSpec } from "@/lib/car-spec";
 import { physicsFromTuning, shiftSpeeds } from "@/lib/car-spec";
 import { buildCarGroup, getWheels } from "@/lib/car-renderer";
@@ -70,8 +72,9 @@ export function Simulator({
   const [headingUp, setHeadingUp] = useState(true);
   const [mapZoom, setMapZoom] = useState(1); // 0.5, 1, 2
   const [mapFull, setMapFull] = useState(false);
+  const [controllerCount, setControllerCount] = useState(0);
   const pausedRef = useRef(false);
-  useEffect(() => { pausedRef.current = mapFull; }, [mapFull]);
+  useEffect(() => { pausedRef.current = mapFull || showSettings; }, [mapFull, showSettings]);
   useEffect(() => {
     if (!mapFull) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setMapFull(false); };
@@ -85,7 +88,8 @@ export function Simulator({
     const unBonus = subscribePermBonuses((b) => {
       (globalThis as { __permBonuses?: ReturnType<typeof getPermBonuses> }).__permBonuses = b;
     });
-    const mount = mountRef.current!;
+    const mount = mountRef.current;
+    if (!mount) { unBonus(); return; }
     const { preset } = resolvePreset(getQualitySetting());
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(60, mount.clientWidth / mount.clientHeight, 0.1, 1000);
@@ -171,6 +175,10 @@ export function Simulator({
     const onUp = (e: KeyboardEvent) => { keys[e.key.toLowerCase()] = false; };
     window.addEventListener("keydown", onDown);
     window.addEventListener("keyup", onUp);
+    const clearKeys = () => { for (const key of Object.keys(keys)) keys[key] = false; };
+    window.addEventListener("blur", clearKeys);
+    let padCount = -1;
+    let previousPadButtons = new Map<number, { map: boolean; cancel: boolean }>();
 
     const onResize = () => {
       const w = mount.clientWidth, h = mount.clientHeight;
@@ -329,6 +337,7 @@ export function Simulator({
       bias: number,
       input: Inputs,
       dt: number,
+      pad?: DrivingPad,
     ) => {
       const fwd = ctrls.fwd.some((k) => keys[k]);
       const back = ctrls.back.some((k) => keys[k]);
@@ -337,9 +346,9 @@ export function Simulator({
       const brake = ctrls.brake.some((k) => keys[k]);
 
       // 2-stufiges Lenk-Lerp (Input → Target → Applied) für Analog-Gefühl
-      const targetThrottle = fwd ? 1 : back ? -0.7 : 0;
-      const targetSteerRaw = left ? 1 : right ? -1 : 0;
-      const targetBrake = brake ? 1 : 0;
+      const targetThrottle = fwd ? 1 : back ? -0.7 : pad?.throttle ?? 0;
+      const targetSteerRaw = left ? 1 : right ? -1 : pad?.steer ?? 0;
+      const targetBrake = brake ? 1 : pad?.handbrake ?? 0;
 
       // Throttle-Easing: exponentielle Kurve statt linear
       input.throttle = lerp(input.throttle, targetThrottle, Math.min(1, dt * 6));
@@ -415,10 +424,27 @@ export function Simulator({
       p1.headlight.intensity = 1.5 + night * 4;
       if (p2) p2.headlight.intensity = 1.5 + night * 4;
 
-      const paused = pausedRef.current;
+      const focused = document.hasFocus() && !document.hidden;
+      const pads = typeof navigator.getGamepads === "function" ? readDrivingPads(Array.from(navigator.getGamepads())) : [];
+      if (pads.length !== padCount) {
+        if (padCount > pads.length) {
+          Object.assign(in1, { steer: 0, steerTarget: 0, throttle: 0, brake: 0 });
+          Object.assign(in2, { steer: 0, steerTarget: 0, throttle: 0, brake: 0 });
+        }
+        padCount = pads.length;
+        setControllerCount(padCount);
+      }
+      const primaryPad = pads[0];
+      const previousButtons = primaryPad ? previousPadButtons.get(primaryPad.index) : undefined;
+      if (focused && primaryPad) {
+        if (primaryPad.map && !previousButtons?.map) setMapFull((v) => !v);
+        if (primaryPad.cancel && !previousButtons?.cancel) { setMapFull(false); setShowSettings(false); }
+      }
+      previousPadButtons = new Map(pads.map((pad) => [pad.index, { map: pad.map, cancel: pad.cancel }]));
+      const paused = pausedRef.current || !focused;
       if (!paused) {
-        updatePlayer(p1, P1, phys1, bias1, in1, dt);
-        if (p2) updatePlayer(p2, P2, phys2, bias2, in2, dt);
+        updatePlayer(p1, P1, phys1, bias1, in1, dt, primaryPad);
+        if (p2) updatePlayer(p2, P2, phys2, bias2, in2, dt, pads[1]);
 
         for (const r of remotes.values()) {
           r.group.position.x += (r.target.x - r.group.position.x) * 0.2;
@@ -892,6 +918,7 @@ export function Simulator({
       cancelAnimationFrame(raf);
       window.removeEventListener("keydown", onDown);
       window.removeEventListener("keyup", onUp);
+      window.removeEventListener("blur", clearKeys);
       window.removeEventListener("resize", onResize);
       room?.destroy();
       unDev();
@@ -929,6 +956,13 @@ export function Simulator({
             >
               ⚙ {fps} fps
             </button>
+            {controllerCount > 0 && (
+              <span className="flex items-center gap-1 rounded-lg border bg-card/80 px-2 py-2 text-xs text-primary backdrop-blur-md"
+                role="status" aria-label={`${controllerCount} Controller verbunden`}
+                title="DualSense: linker Stick · R2 Gas · L2 Bremse/Rückwärts · ✕ Handbremse · Options/Touchpad Karte · ○ Schließen">
+                <Gamepad2 className="h-4 w-4" />{controllerCount}
+              </span>
+            )}
           </div>
 
           <div className="flex items-start gap-3">

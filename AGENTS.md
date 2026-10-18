@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Keep controller mapping in the browser-safe `src/lib/gamepad.ts` module and poll it from the simulator loop; analog input and split-screen assignments must remain independent of keyboard events.
