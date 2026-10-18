@@ -22,6 +22,10 @@ export const Route = createFileRoute("/")({
     meta: [
       { title: "Drift Lab — 3D Auto Simulator" },
       { name: "description", content: "Bau eigene Autos, fahre Missionen, handle auf dem Markt, entdecke Community-Mods." },
+      { property: "og:title", content: "Drift Lab — 3D Auto Simulator" },
+      { property: "og:description", content: "Bau eigene Autos, fahre Missionen und entdecke Community-Mods in Drift Lab." },
+      { property: "og:type", content: "website" },
+      { name: "twitter:card", content: "summary_large_image" },
     ],
   }),
   component: Index,
