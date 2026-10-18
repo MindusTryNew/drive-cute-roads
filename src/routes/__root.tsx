@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { Toaster } from "sonner";
@@ -25,7 +26,7 @@ function NotFoundComponent() {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: ErrorComponentProps) {
   const router = useRouter();
   useEffect(() => { reportLovableError(error, { boundary: "tanstack_root_error_component" }); }, [error]);
   return (
@@ -49,8 +50,6 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "Drift Lab — Auto Simulator" },
       { property: "og:description", content: "Moderner 3D Autofahr-Simulator mit drei Fahrzeugen." },
       { name: "twitter:description", content: "Moderner 3D Autofahr-Simulator mit drei Fahrzeugen." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b183f60d-de27-4732-9339-ecf6f0a9a0ea/id-preview-abed1585--aa3a4785-2e33-4778-8c2c-6b035f51172f.lovable.app-1782407181338.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/b183f60d-de27-4732-9339-ecf6f0a9a0ea/id-preview-abed1585--aa3a4785-2e33-4778-8c2c-6b035f51172f.lovable.app-1782407181338.png" },
       { name: "twitter:card", content: "summary_large_image" },
       { property: "og:type", content: "website" },
     ],
