@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readDrivingPads, stickValue } from "./gamepad";
+import { readDrivingPads, stickValue } from "../src/lib/gamepad";
 
 function pad(index = 0): Omit<Gamepad, "axes" | "buttons"> & { axes: number[]; buttons: GamepadButton[] } {
   return { index, connected: true, mapping: "standard", axes: [0, 0, 0, 0], buttons: Array.from({ length: 18 }, () => ({ value: 0, pressed: false, touched: false })), id: "DualSense", timestamp: 0, vibrationActuator: null } as unknown as Omit<Gamepad, "axes" | "buttons"> & { axes: number[]; buttons: GamepadButton[] };
