@@ -76,9 +76,7 @@ export async function listCloudMissions(): Promise<CloudMissionRow[]> {
 export async function createCloudMission(m: {
   title: string; description: string; goalKind: string; goalValue: number; coins: number; pack?: string;
 }): Promise<void> {
-  const { data } = await supabase.auth.getUser();
-  const uid = data.user?.id;
-  if (!uid) throw new Error("Bitte zuerst mit dem Konto anmelden.");
+  const uid = await requireUid();
   const { error } = await supabase.from("custom_missions").insert({
     author_id: uid,
     title: m.title,
@@ -123,9 +121,7 @@ export async function createCloudSeries(s: {
   name: string; description: string; itemIds: string[];
   tiers: { pct: number; coins: number; label: string }[];
 }): Promise<void> {
-  const { data } = await supabase.auth.getUser();
-  const uid = data.user?.id;
-  if (!uid) throw new Error("Bitte zuerst mit dem Konto anmelden.");
+  const uid = await requireUid();
   const { error } = await supabase.from("collection_series").insert({
     author_id: uid,
     name: s.name,
