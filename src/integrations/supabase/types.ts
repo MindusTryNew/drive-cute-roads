@@ -469,6 +469,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_admin: { Args: { _code: string }; Returns: boolean }
       increment_market_purchase: { Args: { _id: string }; Returns: undefined }
       increment_mod_download: { Args: { _id: string }; Returns: undefined }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
