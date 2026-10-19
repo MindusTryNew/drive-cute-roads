@@ -100,6 +100,7 @@ export async function deleteCloudMission(id: string): Promise<void> {
 
 export type CloudSeriesRow = {
   id: string;
+  author_id: string;
   name: string;
   description: string;
   item_ids: string[];
@@ -110,7 +111,7 @@ export type CloudSeriesRow = {
 export async function listCloudSeriesAdmin(): Promise<CloudSeriesRow[]> {
   const { data, error } = await supabase
     .from("collection_series")
-    .select("id, name, description, item_ids, tiers, active")
+    .select("id, author_id, name, description, item_ids, tiers, active")
     .order("created_at", { ascending: false })
     .limit(100);
   if (error) throw error;
@@ -224,6 +225,16 @@ export async function createCustomItems(items: NewItem[]): Promise<void> {
   const uid = await requireUid();
   const rows = items.map((i) => ({ ...i, effect: i.effect as never, author_id: uid, active: true }));
   const { error } = await supabase.from("custom_collectibles").insert(rows);
+  if (error) throw error;
+}
+
+/** Erstellt ein Einzelitem und ergänzt die Serie in derselben Transaktion. */
+export async function createSingleItem(item: NewItem, seriesId: string | null): Promise<void> {
+  await requireUid();
+  const { error } = await supabase.rpc("create_single_item_in_series", {
+    _item: { ...item, effect: item.effect as never },
+    _series_id: seriesId ?? undefined,
+  });
   if (error) throw error;
 }
 
