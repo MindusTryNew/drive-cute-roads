@@ -36,16 +36,20 @@ export async function unlockAdmin(input: string): Promise<{ ok: boolean; message
   if (code !== ADMIN_CODE) return { ok: false, message: "Ungültiger Admin-Code." };
   setAdmin(true);
 
+  if (await linkAdminAccount()) {
+    return { ok: true, message: "Admin freigeschaltet — Cloud-Inhalte aktiv." };
+  }
+  return { ok: true, message: "Admin lokal freigeschaltet. Für Cloud-Inhalte bitte anmelden." };
+}
+
+/** Verknüpft das angemeldete Konto serverseitig mit Admin-Rechten. */
+export async function linkAdminAccount(): Promise<boolean> {
   try {
     const { data } = await supabase.auth.getUser();
-    const uid = data.user?.id;
-    if (uid) {
-      await supabase.from("admin_users").upsert({ user_id: uid }, { onConflict: "user_id" });
-      return { ok: true, message: "Admin freigeschaltet — Cloud-Inhalte aktiv." };
-    }
-  } catch { /* offline / nicht angemeldet */ }
-
-  return { ok: true, message: "Admin lokal freigeschaltet. Für Cloud-Inhalte bitte anmelden." };
+    if (!data.user) return false;
+    const { data: ok, error } = await supabase.rpc("claim_admin", { _code: ADMIN_CODE });
+    return !error && ok === true;
+  } catch { return false; }
 }
 
 /* ------------------------- Cloud-CRUD -------------------------- */
@@ -149,6 +153,7 @@ async function requireUid(): Promise<string> {
   const { data } = await supabase.auth.getUser();
   const uid = data.user?.id;
   if (!uid) throw new Error("Bitte zuerst mit dem Konto anmelden.");
+  if (isAdmin()) await linkAdminAccount();
   return uid;
 }
 
