@@ -36,16 +36,20 @@ export async function unlockAdmin(input: string): Promise<{ ok: boolean; message
   if (code !== ADMIN_CODE) return { ok: false, message: "Ungültiger Admin-Code." };
   setAdmin(true);
 
+  if (await linkAdminAccount()) {
+    return { ok: true, message: "Admin freigeschaltet — Cloud-Inhalte aktiv." };
+  }
+  return { ok: true, message: "Admin lokal freigeschaltet. Für Cloud-Inhalte bitte anmelden." };
+}
+
+/** Verknüpft das angemeldete Konto serverseitig mit Admin-Rechten. */
+export async function linkAdminAccount(): Promise<boolean> {
   try {
     const { data } = await supabase.auth.getUser();
-    const uid = data.user?.id;
-    if (uid) {
-      await supabase.from("admin_users").upsert({ user_id: uid }, { onConflict: "user_id" });
-      return { ok: true, message: "Admin freigeschaltet — Cloud-Inhalte aktiv." };
-    }
-  } catch { /* offline / nicht angemeldet */ }
-
-  return { ok: true, message: "Admin lokal freigeschaltet. Für Cloud-Inhalte bitte anmelden." };
+    if (!data.user) return false;
+    const { data: ok, error } = await supabase.rpc("claim_admin", { _code: ADMIN_CODE });
+    return !error && ok === true;
+  } catch { return false; }
 }
 
 /* ------------------------- Cloud-CRUD -------------------------- */
@@ -72,9 +76,7 @@ export async function listCloudMissions(): Promise<CloudMissionRow[]> {
 export async function createCloudMission(m: {
   title: string; description: string; goalKind: string; goalValue: number; coins: number; pack?: string;
 }): Promise<void> {
-  const { data } = await supabase.auth.getUser();
-  const uid = data.user?.id;
-  if (!uid) throw new Error("Bitte zuerst mit dem Konto anmelden.");
+  const uid = await requireUid();
   const { error } = await supabase.from("custom_missions").insert({
     author_id: uid,
     title: m.title,
@@ -119,9 +121,7 @@ export async function createCloudSeries(s: {
   name: string; description: string; itemIds: string[];
   tiers: { pct: number; coins: number; label: string }[];
 }): Promise<void> {
-  const { data } = await supabase.auth.getUser();
-  const uid = data.user?.id;
-  if (!uid) throw new Error("Bitte zuerst mit dem Konto anmelden.");
+  const uid = await requireUid();
   const { error } = await supabase.from("collection_series").insert({
     author_id: uid,
     name: s.name,
@@ -149,6 +149,7 @@ async function requireUid(): Promise<string> {
   const { data } = await supabase.auth.getUser();
   const uid = data.user?.id;
   if (!uid) throw new Error("Bitte zuerst mit dem Konto anmelden.");
+  if (isAdmin()) await linkAdminAccount();
   return uid;
 }
 
