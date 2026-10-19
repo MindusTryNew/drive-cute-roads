@@ -470,6 +470,10 @@ export type Database = {
     }
     Functions: {
       claim_admin: { Args: { _code: string }; Returns: boolean }
+      create_single_item_in_series: {
+        Args: { _item: Json; _series_id?: string }
+        Returns: undefined
+      }
       increment_market_purchase: { Args: { _id: string }; Returns: undefined }
       increment_mod_download: { Args: { _id: string }; Returns: undefined }
       is_admin: { Args: { _user_id: string }; Returns: boolean }
