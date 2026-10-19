@@ -34,6 +34,7 @@ import {
   deleteCustomPack,
   type PackRow,
 } from "@/lib/admin";
+import { adminErrorText } from "@/lib/admin";
 import {
   COLLECTIBLES,
   RARITY_ORDER,
@@ -147,7 +148,7 @@ function MissionsTab() {
       toast.success("Mission online gestellt — für alle Spieler sichtbar.");
       load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+      toast.error(adminErrorText(e));
     } finally { setBusy(false); }
   };
 
@@ -237,7 +238,7 @@ function SeriesTab() {
       await refreshCloudSeries();
       load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+      toast.error(adminErrorText(e));
     } finally { setBusy(false); }
   };
 
@@ -332,7 +333,7 @@ function RaritiesTab() {
       await loadCustomContent(true);
       load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+      toast.error(adminErrorText(e));
     } finally { setBusy(false); }
   };
 
@@ -498,7 +499,7 @@ function SingleItemForm({ onDone }: { onDone: () => void }) {
       await loadCustomContent(true);
       onDone();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+      toast.error(adminErrorText(e));
     } finally { setBusy(false); }
   };
 
@@ -606,7 +607,7 @@ function BulkGenerator({ onDone }: { onDone: () => void }) {
       await loadCustomContent(true);
       onDone();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+      toast.error(adminErrorText(e));
     } finally { setBusy(false); }
   };
 
@@ -718,7 +719,7 @@ function BundlesTab() {
       setContents({ presets: [], items: [], packs: [], coins: 0, slots: 0, passDays: 0, boosters: [] });
       load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+      toast.error(adminErrorText(e));
     } finally { setBusy(false); }
   };
 
@@ -992,7 +993,7 @@ function PacksTab() {
       reset();
       load();
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+      toast.error(adminErrorText(e));
     } finally { setBusy(false); }
   };
 

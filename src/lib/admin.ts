@@ -149,7 +149,9 @@ async function requireUid(): Promise<string> {
   const { data } = await supabase.auth.getUser();
   const uid = data.user?.id;
   if (!uid) throw new Error("Bitte zuerst mit dem Konto anmelden.");
-  if (isAdmin()) await linkAdminAccount();
+  if (!(await linkAdminAccount())) {
+    throw new Error("Admin-Rechte konnten nicht mit deinem Konto verknüpft werden. Bitte neu anmelden.");
+  }
   return uid;
 }
 
@@ -353,4 +355,13 @@ export async function updateAdminBundle(id: string, b: Partial<Omit<BundleRow, "
 export async function setItemActive(id: string, active: boolean): Promise<void> {
   const { error } = await supabase.from("custom_collectibles").update({ active }).eq("id", id);
   if (error) throw error;
+}
+
+/** Lesbare Fehlermeldung für Admin-Aktionen (auch für Datenbank-Fehlerobjekte). */
+export function adminErrorText(e: unknown): string {
+  const msg = e instanceof Error ? e.message
+    : e && typeof e === "object" && "message" in e ? String((e as { message: unknown }).message) : "";
+  if (/row-level security|permission denied/i.test(msg)) return "Keine Admin-Rechte für dieses Konto. Bitte anmelden und Admin-Code erneut eingeben.";
+  if (/duplicate key|unique/i.test(msg)) return "Dieses Kürzel existiert bereits – bitte ein anderes wählen.";
+  return msg || "Fehlgeschlagen";
 }
