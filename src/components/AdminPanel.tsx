@@ -492,8 +492,9 @@ function SingleItemForm({ onDone }: { onDone: () => void }) {
         const { data, error } = await supabase.auth.getUser();
         if (error) throw error;
         if (!data.user) throw new Error("Bitte zuerst mit dem Konto anmelden.");
+        const uid = data.user.id;
         const rows = await listCloudSeriesAdmin();
-        if (!cancelled) setSeries(rows.filter((row) => row.author_id === data.user.id));
+        if (!cancelled) setSeries(rows.filter((row) => row.author_id === uid));
       } catch (e) {
         if (!cancelled) setSeriesError(adminErrorText(e));
       } finally {
