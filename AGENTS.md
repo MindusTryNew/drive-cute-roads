@@ -10,3 +10,4 @@
 <!-- LOVABLE:END -->
 
 - Keep controller mapping in the browser-safe `src/lib/gamepad.ts` module and poll it from the simulator loop; analog input and split-screen assignments must remain independent of keyboard events.
+- Create individual admin items with series membership through a single invoker database transaction, so item metadata and collection progress cannot diverge or partially save.

@@ -16,6 +16,7 @@ import {
   deleteRarity,
   listCustomItems,
   createCustomItems,
+  createSingleItem,
   deleteCustomItem,
   listAdminBundles,
   createAdminBundle,
@@ -48,6 +49,8 @@ import { addCoins, setCoinsAbsolute } from "@/lib/coins";
 import { addPack } from "@/lib/inventory";
 import { refreshCloudSeries } from "@/lib/series";
 import { loadCustomContent } from "@/lib/custom-content";
+import { Button } from "@/components/ui/button";
+import { supabase } from "@/integrations/supabase/client";
 import { PRESETS } from "@/lib/preset-cars";
 import { bundleValue, normalizeContents, type BundleContents, type Booster } from "@/lib/admin-bundles";
 
@@ -479,6 +482,28 @@ function SingleItemForm({ onDone }: { onDone: () => void }) {
   const [seriesKey, setSeriesKey] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const [series, setSeries] = useState<CloudSeriesRow[]>([]);
+  const [seriesLoading, setSeriesLoading] = useState(true);
+  const [seriesError, setSeriesError] = useState("");
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const { data, error } = await supabase.auth.getUser();
+        if (error) throw error;
+        if (!data.user) throw new Error("Bitte zuerst mit dem Konto anmelden.");
+        const uid = data.user.id;
+        const rows = await listCloudSeriesAdmin();
+        if (!cancelled) setSeries(rows.filter((row) => row.author_id === uid));
+      } catch (e) {
+        if (!cancelled) setSeriesError(adminErrorText(e));
+      } finally {
+        if (!cancelled) setSeriesLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   const effect = (): Record<string, unknown> => {
     if (kind === "coins") return { kind: "coins", amount };
     if (kind === "perm") return { kind: "perm", stat, pct };
@@ -491,12 +516,13 @@ function SingleItemForm({ onDone }: { onDone: () => void }) {
     const key = `adm-${slug(name)}-${Math.random().toString(36).slice(2, 6)}`;
     setBusy(true);
     try {
-      await createCustomItems([{
+      await createSingleItem({
         item_key: key, name: name.trim(), emoji, description: desc,
         rarity_key: rarity, effect: effect(), series_key: seriesKey.trim() || null,
-      }]);
+      }, seriesKey || null);
       toast.success(`${emoji} ${name} ist online.`);
       await loadCustomContent(true);
+      await refreshCloudSeries();
       onDone();
     } catch (e) {
       toast.error(adminErrorText(e));
@@ -511,7 +537,13 @@ function SingleItemForm({ onDone }: { onDone: () => void }) {
         <Field label="Emoji"><input value={emoji} onChange={(e) => setEmoji(e.target.value)} maxLength={4} className={inputCls} /></Field>
         <Field label="Seltenheit"><RaritySelect value={rarity} onChange={setRarity} /></Field>
         <Field label="Beschreibung"><input value={desc} onChange={(e) => setDesc(e.target.value)} maxLength={160} className={inputCls} /></Field>
-        <Field label="Serien-Schlüssel (optional)"><input value={seriesKey} onChange={(e) => setSeriesKey(e.target.value)} className={inputCls} /></Field>
+        <Field label="Sammelserie (optional)">
+          <select aria-label="Sammelserie" value={seriesKey} onChange={(e) => setSeriesKey(e.target.value)} disabled={seriesLoading || !!seriesError} className={inputCls}>
+            <option value="">{seriesLoading ? "Serien werden geladen…" : "Keine Serie"}</option>
+            {series.map((row) => <option key={row.id} value={row.id}>{row.name}{row.active ? "" : " (inaktiv)"}</option>)}
+          </select>
+          {seriesError && <p role="alert" className="mt-1 text-xs text-destructive">{seriesError}</p>}
+        </Field>
         <Field label="Effekt">
           <select value={kind} onChange={(e) => setKind(e.target.value as EffectKind)} className={inputCls}>
             <option value="none">Kein Effekt</option>
@@ -541,7 +573,7 @@ function SingleItemForm({ onDone }: { onDone: () => void }) {
           <Field label="Dauer (Sek.)"><input type="number" value={seconds} onChange={(e) => setSeconds(Number(e.target.value) || 0)} className={inputCls} /></Field>
         )}
       </div>
-      <button onClick={create} disabled={busy} className={primaryBtn}>Item online stellen</button>
+      <Button onClick={create} disabled={busy} className="mt-4">Item online stellen</Button>
     </section>
   );
 }
